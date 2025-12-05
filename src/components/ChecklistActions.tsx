@@ -2,19 +2,18 @@ import { useState } from 'react';
 import { useChecklistStore } from '../store/checklistStore';
 
 interface ChecklistActionsProps {
+  checklistId: string;
   hideCompleted: boolean;
   setHideCompleted: (value: boolean) => void;
-  moveCompletedToBottom: boolean;
-  setMoveCompletedToBottom: (value: boolean) => void;
 }
 
 export const ChecklistActions = ({
+  checklistId,
   hideCompleted,
   setHideCompleted,
-  moveCompletedToBottom,
-  setMoveCompletedToBottom,
 }: ChecklistActionsProps) => {
-  const { checklist, deleteAllCompleted, selectAll, deselectAll } = useChecklistStore();
+  const { checklists, deleteAllCompleted, selectAll, deselectAll } = useChecklistStore();
+  const checklist = checklists.find((c) => c.id === checklistId);
   const [showMenu, setShowMenu] = useState(false);
 
   if (!checklist) return null;
@@ -36,17 +35,6 @@ export const ChecklistActions = ({
         {hideCompleted ? 'Show Completed' : 'Hide Completed'}
       </button>
 
-      <button
-        onClick={() => setMoveCompletedToBottom(!moveCompletedToBottom)}
-        className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-          moveCompletedToBottom
-            ? 'bg-blue-600 text-white'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-        }`}
-      >
-        {moveCompletedToBottom ? 'Don\'t Move' : 'Move Completed'}
-      </button>
-
       {/* More actions menu */}
       <div className="relative">
         <button
@@ -60,7 +48,7 @@ export const ChecklistActions = ({
           <div className="absolute top-full mt-2 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[180px]">
             <button
               onClick={() => {
-                selectAll();
+                selectAll(checklistId);
                 setShowMenu(false);
               }}
               disabled={!hasItems}
@@ -70,7 +58,7 @@ export const ChecklistActions = ({
             </button>
             <button
               onClick={() => {
-                deselectAll();
+                deselectAll(checklistId);
                 setShowMenu(false);
               }}
               disabled={!hasCompletedItems}
@@ -82,7 +70,7 @@ export const ChecklistActions = ({
             <button
               onClick={() => {
                 if (confirm('Delete all completed items?')) {
-                  deleteAllCompleted();
+                  deleteAllCompleted(checklistId);
                 }
                 setShowMenu(false);
               }}

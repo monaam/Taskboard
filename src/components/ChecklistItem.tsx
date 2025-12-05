@@ -6,14 +6,18 @@ import { useChecklistStore } from '../store/checklistStore';
 
 interface ChecklistItemProps {
   item: ChecklistItemType;
+  checklistId: string;
   disabled?: boolean;
 }
 
-export const ChecklistItem = ({ item, disabled = false }: ChecklistItemProps) => {
+export const ChecklistItem = ({ item, checklistId, disabled = false }: ChecklistItemProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(item.text);
 
   const { toggleItemComplete, updateItemText, deleteItem } = useChecklistStore();
+
+  // Use composite ID format for cross-checklist dragging (use :: as separator to avoid UUID dash conflicts)
+  const compositeId = `${checklistId}::${item.id}`;
 
   const {
     attributes,
@@ -22,7 +26,7 @@ export const ChecklistItem = ({ item, disabled = false }: ChecklistItemProps) =>
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id, disabled });
+  } = useSortable({ id: compositeId, disabled });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -32,7 +36,7 @@ export const ChecklistItem = ({ item, disabled = false }: ChecklistItemProps) =>
 
   const handleSave = () => {
     if (editText.trim()) {
-      updateItemText(item.id, editText.trim());
+      updateItemText(checklistId, item.id, editText.trim());
     } else {
       setEditText(item.text);
     }
@@ -79,7 +83,7 @@ export const ChecklistItem = ({ item, disabled = false }: ChecklistItemProps) =>
       <input
         type="checkbox"
         checked={item.completed}
-        onChange={() => toggleItemComplete(item.id)}
+        onChange={() => toggleItemComplete(checklistId, item.id)}
         className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
       />
 
@@ -109,7 +113,7 @@ export const ChecklistItem = ({ item, disabled = false }: ChecklistItemProps) =>
 
       {/* Delete Button */}
       <button
-        onClick={() => deleteItem(item.id)}
+        onClick={() => deleteItem(checklistId, item.id)}
         className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity"
         aria-label="Delete item"
       >
