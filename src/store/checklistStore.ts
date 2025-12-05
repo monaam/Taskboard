@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Checklist, ChecklistItem, ChecklistState, Priority } from '../types';
+import { Checklist, ChecklistItem, ChecklistState, Priority, ChecklistColor } from '../types';
 
 const generateId = () => crypto.randomUUID();
 
@@ -45,6 +45,7 @@ export const useChecklistStore = create<ChecklistState>()(
               ],
               x: position.x,
               y: position.y,
+              color: 'default',
               createdAt: Date.now(),
               updatedAt: Date.now(),
             },
@@ -66,6 +67,15 @@ export const useChecklistStore = create<ChecklistState>()(
           checklists: state.checklists.map((checklist) =>
             checklist.id === checklistId
               ? { ...checklist, x, y, updatedAt: Date.now() }
+              : checklist
+          ),
+        })),
+
+      updateChecklistColor: (checklistId: string, color: ChecklistColor) =>
+        set((state) => ({
+          checklists: state.checklists.map((checklist) =>
+            checklist.id === checklistId
+              ? { ...checklist, color, updatedAt: Date.now() }
               : checklist
           ),
         })),

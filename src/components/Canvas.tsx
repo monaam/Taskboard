@@ -12,17 +12,21 @@ import {
   DragOverlay,
 } from '@dnd-kit/core';
 import { useChecklistStore } from '../store/checklistStore';
+import { useTextNoteStore } from '../store/textNoteStore';
 import { Checklist } from './Checklist';
+import { TextNote } from './TextNote';
 import { ChecklistItem as ChecklistItemType } from '../types';
 
 export const Canvas = () => {
-  const { checklists, reorderItems, moveItemBetweenChecklists } = useChecklistStore();
+  const { checklists, createChecklist, reorderItems, moveItemBetweenChecklists } = useChecklistStore();
+  const { textNotes, createTextNote } = useTextNoteStore();
   const [activeItem, setActiveItem] = useState<{ item: ChecklistItemType; checklistId: string } | null>(null);
   const [overChecklistId, setOverChecklistId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; canvasX: number; canvasY: number } | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   // DnD sensors for item dragging
@@ -192,8 +196,71 @@ export const Canvas = () => {
     setPan({ x: 0, y: 0 });
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    // Only show context menu on canvas background
+    const target = e.target as HTMLElement;
+    const isCanvasArea = target.classList.contains('canvas-background') ||
+                         target.classList.contains('canvas-grid') ||
+                         target.classList.contains('canvas-content');
+
+    if (isCanvasArea) {
+      // Calculate canvas position accounting for pan and zoom
+      const canvasX = (e.clientX - pan.x) / zoom;
+      const canvasY = (e.clientY - pan.y) / zoom;
+      setContextMenu({ x: e.clientX, y: e.clientY, canvasX, canvasY });
+    }
+  };
+
+  const handleCreateChecklist = () => {
+    if (contextMenu) {
+      createChecklist('New Checklist', contextMenu.canvasX, contextMenu.canvasY);
+      setContextMenu(null);
+    }
+  };
+
+  const handleCreateTextNote = () => {
+    if (contextMenu) {
+      createTextNote('Text', contextMenu.canvasX, contextMenu.canvasY);
+      setContextMenu(null);
+    }
+  };
+
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-gray-200">
+    <div className="relative w-full h-screen overflow-hidden bg-gray-200" onContextMenu={handleContextMenu}>
+      {/* Context Menu */}
+      {contextMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setContextMenu(null)}
+          />
+          <div
+            className="fixed bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[160px] py-1"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+          >
+            <button
+              onClick={handleCreateChecklist}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-3"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              New Checklist
+            </button>
+            <button
+              onClick={handleCreateTextNote}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-3"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              New Text
+            </button>
+          </div>
+        </>
+      )}
+
       {/* Zoom Controls */}
       <div className="absolute top-4 right-4 z-50 flex flex-col gap-2 bg-white rounded-lg shadow-lg p-2">
         <button
@@ -272,6 +339,20 @@ export const Canvas = () => {
                 }}
               >
                 <Checklist checklistId={checklist.id} zoom={zoom} pan={pan} />
+              </div>
+            ))}
+
+            {/* Render all text notes */}
+            {textNotes.map((note) => (
+              <div
+                key={note.id}
+                style={{
+                  position: 'absolute',
+                  left: `${note.x}px`,
+                  top: `${note.y}px`,
+                }}
+              >
+                <TextNote noteId={note.id} zoom={zoom} pan={pan} />
               </div>
             ))}
           </div>

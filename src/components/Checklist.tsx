@@ -7,6 +7,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { useChecklistStore } from '../store/checklistStore';
 import { ChecklistHeader } from './ChecklistHeader';
 import { ChecklistItem } from './ChecklistItem';
+import { CHECKLIST_COLORS } from '../types';
 
 interface ChecklistProps {
   checklistId: string;
@@ -81,11 +82,13 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
 
   if (!checklist) return null;
 
+  const colorStyles = CHECKLIST_COLORS[checklist.color || 'default'];
+
   return (
     <div
       ref={cardRef}
       onMouseDown={handleCardMouseDown}
-      className="w-96 bg-white rounded-xl shadow-xl border border-gray-200"
+      className={`w-96 rounded-xl shadow-xl border border-gray-200 ${colorStyles.bg}`}
       style={{
         cursor: isDragging ? 'grabbing' : 'default',
       }}
