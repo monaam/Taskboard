@@ -154,8 +154,13 @@ export const Canvas = () => {
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    // Only pan if clicking on the canvas background, not on checklists
-    if ((e.target as HTMLElement).classList.contains('canvas-background')) {
+    // Only pan if clicking on the canvas background or grid, not on checklists
+    const target = e.target as HTMLElement;
+    const isCanvasArea = target.classList.contains('canvas-background') ||
+                         target.classList.contains('canvas-grid') ||
+                         target.classList.contains('canvas-content');
+
+    if (isCanvasArea) {
       setIsPanning(true);
       setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     }
@@ -188,7 +193,7 @@ export const Canvas = () => {
   };
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-gray-100">
+    <div className="relative w-full h-screen overflow-hidden bg-gray-200">
       {/* Zoom Controls */}
       <div className="absolute top-4 right-4 z-50 flex flex-col gap-2 bg-white rounded-lg shadow-lg p-2">
         <button
@@ -244,6 +249,7 @@ export const Canvas = () => {
           onDragEnd={handleDragEnd}
         >
           <div
+            className="canvas-content"
             style={{
               transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
               transformOrigin: '0 0',
@@ -252,17 +258,8 @@ export const Canvas = () => {
               position: 'relative',
             }}
           >
-            {/* Grid pattern */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                backgroundImage: `
-                  linear-gradient(to right, #e5e7eb 1px, transparent 1px),
-                  linear-gradient(to bottom, #e5e7eb 1px, transparent 1px)
-                `,
-                backgroundSize: '50px 50px',
-              }}
-            />
+            {/* Plain background */}
+            <div className="canvas-grid absolute inset-0 bg-gray-200" />
 
             {/* Render all checklists */}
             {checklists.map((checklist) => (
@@ -274,7 +271,7 @@ export const Canvas = () => {
                   top: `${checklist.y}px`,
                 }}
               >
-                <Checklist checklistId={checklist.id} />
+                <Checklist checklistId={checklist.id} zoom={zoom} pan={pan} />
               </div>
             ))}
           </div>

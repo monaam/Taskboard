@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   SortableContext,
   verticalListSortingStrategy,
@@ -11,9 +11,11 @@ import { ChecklistItem } from './ChecklistItem';
 
 interface ChecklistProps {
   checklistId: string;
+  zoom: number;
+  pan: { x: number; y: number };
 }
 
-export const Checklist = ({ checklistId }: ChecklistProps) => {
+export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
   const { checklists, addItem, updateChecklistPosition } = useChecklistStore();
 
   // Make this checklist a droppable area for cross-list dragging
@@ -25,7 +27,7 @@ export const Checklist = ({ checklistId }: ChecklistProps) => {
   const [newItemText, setNewItemText] = useState('');
   const [hideCompleted, setHideCompleted] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
   const cardRef = useRef<HTMLDivElement>(null);
 
   const { incompleteItems, completedItems } = useMemo(() => {
@@ -48,28 +50,43 @@ export const Checklist = ({ checklistId }: ChecklistProps) => {
     }
   };
 
+  // Handle mouse move at window level for smooth dragging
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!checklist) return;
+    // Account for zoom and pan when calculating position
+    const newX = (e.clientX - pan.x) / zoom - dragStartRef.current.x;
+    const newY = (e.clientY - pan.y) / zoom - dragStartRef.current.y;
+    updateChecklistPosition(checklistId, newX, newY);
+  }, [checklistId, checklist, updateChecklistPosition, zoom, pan]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Add/remove window event listeners when dragging
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
   // Drag checklist card on canvas
   const handleCardMouseDown = (e: React.MouseEvent) => {
     // Only drag if clicking on the header
     if ((e.target as HTMLElement).closest('.checklist-header')) {
+      e.preventDefault(); // Prevent text selection
+      // Store offset from checklist origin (not from mouse)
+      dragStartRef.current = {
+        x: (e.clientX - pan.x) / zoom - (checklist?.x || 0),
+        y: (e.clientY - pan.y) / zoom - (checklist?.y || 0),
+      };
       setIsDragging(true);
-      setDragStart({
-        x: e.clientX - (checklist?.x || 0),
-        y: e.clientY - (checklist?.y || 0),
-      });
     }
-  };
-
-  const handleCardMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && checklist) {
-      const newX = e.clientX - dragStart.x;
-      const newY = e.clientY - dragStart.y;
-      updateChecklistPosition(checklistId, newX, newY);
-    }
-  };
-
-  const handleCardMouseUp = () => {
-    setIsDragging(false);
   };
 
   if (!checklist) return null;
@@ -78,9 +95,6 @@ export const Checklist = ({ checklistId }: ChecklistProps) => {
     <div
       ref={cardRef}
       onMouseDown={handleCardMouseDown}
-      onMouseMove={handleCardMouseMove}
-      onMouseUp={handleCardMouseUp}
-      onMouseLeave={handleCardMouseUp}
       className="w-96 bg-white rounded-xl shadow-xl border border-gray-200"
       style={{
         cursor: isDragging ? 'grabbing' : 'default',

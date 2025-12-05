@@ -33,7 +33,19 @@ export const ChecklistHeader = ({ checklistId }: ChecklistHeaderProps) => {
   };
 
   return (
-    <div className="checklist-header mb-6 cursor-grab active:cursor-grabbing">
+    <div className="mb-6">
+      {/* Drag Handle */}
+      <div className="checklist-header flex justify-center py-2 -mx-6 -mt-6 mb-4 bg-gray-50 rounded-t-xl cursor-grab active:cursor-grabbing select-none hover:bg-gray-100 transition-colors">
+        <svg className="w-6 h-4 text-gray-400" viewBox="0 0 24 12" fill="currentColor">
+          <circle cx="4" cy="3" r="1.5" />
+          <circle cx="12" cy="3" r="1.5" />
+          <circle cx="20" cy="3" r="1.5" />
+          <circle cx="4" cy="9" r="1.5" />
+          <circle cx="12" cy="9" r="1.5" />
+          <circle cx="20" cy="9" r="1.5" />
+        </svg>
+      </div>
+
       <div className="flex items-center justify-between mb-2">
         {isEditing ? (
           <input
