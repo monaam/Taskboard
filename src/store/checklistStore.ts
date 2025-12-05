@@ -34,7 +34,15 @@ export const useChecklistStore = create<ChecklistState>()(
             {
               id: generateId(),
               title,
-              items: [],
+              items: [
+                {
+                  id: generateId(),
+                  text: '',
+                  completed: false,
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                },
+              ],
               x: position.x,
               y: position.y,
               createdAt: Date.now(),
@@ -89,6 +97,35 @@ export const useChecklistStore = create<ChecklistState>()(
               : checklist
           ),
         })),
+
+      // Insert a new item after a specific item, returns the new item's ID
+      insertItemAfter: (checklistId: string, afterItemId: string) => {
+        const newItemId = generateId();
+        set((state) => ({
+          checklists: state.checklists.map((checklist) => {
+            if (checklist.id !== checklistId) return checklist;
+
+            const itemIndex = checklist.items.findIndex((i) => i.id === afterItemId);
+            if (itemIndex === -1) return checklist;
+
+            const newItems = [...checklist.items];
+            newItems.splice(itemIndex + 1, 0, {
+              id: newItemId,
+              text: '',
+              completed: false,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            });
+
+            return {
+              ...checklist,
+              items: newItems,
+              updatedAt: Date.now(),
+            };
+          }),
+        }));
+        return newItemId;
+      },
 
       deleteItem: (checklistId: string, itemId: string) =>
         set((state) => ({

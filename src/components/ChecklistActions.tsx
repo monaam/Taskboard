@@ -22,30 +22,30 @@ export const ChecklistActions = ({
   const hasItems = checklist.items.length > 0;
 
   return (
-    <div className="mb-4 flex flex-wrap gap-2 items-center">
-      {/* Toggle buttons */}
-      <button
-        onClick={() => setHideCompleted(!hideCompleted)}
-        className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-          hideCompleted
-            ? 'bg-blue-600 text-white'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-        }`}
-      >
-        {hideCompleted ? 'Show Completed' : 'Hide Completed'}
-      </button>
-
-      {/* More actions menu */}
+    <div className="mb-4 flex justify-end">
+      {/* Three dots menu */}
       <div className="relative">
         <button
           onClick={() => setShowMenu(!showMenu)}
-          className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
         >
-          More Actions
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+          </svg>
         </button>
 
         {showMenu && (
-          <div className="absolute top-full mt-2 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[180px]">
+          <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[180px]">
+            <button
+              onClick={() => {
+                setHideCompleted(!hideCompleted);
+                setShowMenu(false);
+              }}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            >
+              {hideCompleted ? 'Show Completed' : 'Hide Completed'}
+            </button>
+            <hr className="my-1" />
             <button
               onClick={() => {
                 selectAll(checklistId);

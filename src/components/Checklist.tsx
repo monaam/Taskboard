@@ -6,7 +6,6 @@ import {
 import { useDroppable } from '@dnd-kit/core';
 import { useChecklistStore } from '../store/checklistStore';
 import { ChecklistHeader } from './ChecklistHeader';
-import { ChecklistActions } from './ChecklistActions';
 import { ChecklistItem } from './ChecklistItem';
 
 interface ChecklistProps {
@@ -16,7 +15,7 @@ interface ChecklistProps {
 }
 
 export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
-  const { checklists, addItem, updateChecklistPosition } = useChecklistStore();
+  const { checklists, updateChecklistPosition } = useChecklistStore();
 
   // Make this checklist a droppable area for cross-list dragging
   const { setNodeRef: setDroppableRef } = useDroppable({
@@ -24,7 +23,6 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
   });
   const checklist = checklists.find((c) => c.id === checklistId);
 
-  const [newItemText, setNewItemText] = useState('');
   const [hideCompleted, setHideCompleted] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
@@ -41,14 +39,6 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
       completedItems: hideCompleted ? [] : completed,
     };
   }, [checklist, hideCompleted]);
-
-  const handleAddItem = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newItemText.trim() && checklist) {
-      addItem(checklistId, newItemText.trim());
-      setNewItemText('');
-    }
-  };
 
   // Handle mouse move at window level for smooth dragging
   const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -101,32 +91,11 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
       }}
     >
       <div className="p-6">
-        <ChecklistHeader checklistId={checklistId} />
-
-        <ChecklistActions
+        <ChecklistHeader
           checklistId={checklistId}
           hideCompleted={hideCompleted}
           setHideCompleted={setHideCompleted}
         />
-
-        {/* Add new item form */}
-        <form onSubmit={handleAddItem} className="mb-4">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newItemText}
-              onChange={(e) => setNewItemText(e.target.value)}
-              placeholder="Add a new item..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <button
-              type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-            >
-              Add
-            </button>
-          </div>
-        </form>
 
         {/* Items list - Always droppable */}
         <div ref={setDroppableRef} className="min-h-[60px]">

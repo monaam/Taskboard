@@ -3,14 +3,20 @@ import { useChecklistStore } from '../store/checklistStore';
 
 interface ChecklistHeaderProps {
   checklistId: string;
+  hideCompleted: boolean;
+  setHideCompleted: (value: boolean) => void;
 }
 
-export const ChecklistHeader = ({ checklistId }: ChecklistHeaderProps) => {
-  const { checklists, updateChecklistTitle, deleteChecklist } = useChecklistStore();
+export const ChecklistHeader = ({ checklistId, hideCompleted, setHideCompleted }: ChecklistHeaderProps) => {
+  const { checklists, updateChecklistTitle, deleteChecklist, deleteAllCompleted, selectAll, deselectAll } = useChecklistStore();
   const checklist = checklists.find((c) => c.id === checklistId);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(checklist?.title || '');
+  const [showMenu, setShowMenu] = useState(false);
+
+  const hasCompletedItems = checklist?.items.some(item => item.completed) || false;
+  const hasItems = (checklist?.items.length || 0) > 0;
 
   if (!checklist) return null;
 
@@ -65,19 +71,81 @@ export const ChecklistHeader = ({ checklistId }: ChecklistHeaderProps) => {
             {checklist.title}
           </h1>
         )}
-        <button
-          onClick={() => {
-            if (confirm('Delete this checklist?')) {
-              deleteChecklist(checklistId);
-            }
-          }}
-          className="ml-2 p-1 text-gray-400 hover:text-red-600 transition-colors"
-          title="Delete checklist"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        {/* Three dots menu */}
+        <div className="relative ml-2">
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+            </svg>
+          </button>
+
+          {showMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowMenu(false)}
+              />
+              <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[180px]">
+                <button
+                  onClick={() => {
+                    setHideCompleted(!hideCompleted);
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg"
+                >
+                  {hideCompleted ? 'Show Completed' : 'Hide Completed'}
+                </button>
+                <button
+                  onClick={() => {
+                    selectAll(checklistId);
+                    setShowMenu(false);
+                  }}
+                  disabled={!hasItems}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:text-gray-400 disabled:hover:bg-white"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={() => {
+                    deselectAll(checklistId);
+                    setShowMenu(false);
+                  }}
+                  disabled={!hasCompletedItems}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:text-gray-400 disabled:hover:bg-white"
+                >
+                  Deselect All
+                </button>
+                <hr className="my-1" />
+                <button
+                  onClick={() => {
+                    if (confirm('Delete all completed items?')) {
+                      deleteAllCompleted(checklistId);
+                    }
+                    setShowMenu(false);
+                  }}
+                  disabled={!hasCompletedItems}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:text-gray-400 disabled:hover:bg-white"
+                >
+                  Delete Completed
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm('Delete this checklist?')) {
+                      deleteChecklist(checklistId);
+                    }
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg"
+                >
+                  Delete Checklist
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
       <p className="text-sm text-gray-500">
         {checklist.items.length} items • {checklist.items.filter(item => item.completed).length} completed

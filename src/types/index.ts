@@ -29,6 +29,7 @@ export type ChecklistState = {
   updateChecklistPosition: (checklistId: string, x: number, y: number) => void;
   deleteChecklist: (checklistId: string) => void;
   addItem: (checklistId: string, text: string) => void;
+  insertItemAfter: (checklistId: string, afterItemId: string) => string;
   deleteItem: (checklistId: string, itemId: string) => void;
   updateItemText: (checklistId: string, itemId: string, text: string) => void;
   toggleItemComplete: (checklistId: string, itemId: string) => void;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ChecklistItem as ChecklistItemType } from '../types';
@@ -8,13 +8,15 @@ interface ChecklistItemProps {
   item: ChecklistItemType;
   checklistId: string;
   disabled?: boolean;
+  autoFocus?: boolean;
 }
 
-export const ChecklistItem = ({ item, checklistId, disabled = false }: ChecklistItemProps) => {
-  const [isEditing, setIsEditing] = useState(false);
+export const ChecklistItem = ({ item, checklistId, disabled = false, autoFocus = false }: ChecklistItemProps) => {
+  const [isEditing, setIsEditing] = useState(item.text === '' || autoFocus);
   const [editText, setEditText] = useState(item.text);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const { toggleItemComplete, updateItemText, deleteItem } = useChecklistStore();
+  const { toggleItemComplete, updateItemText, deleteItem, insertItemAfter } = useChecklistStore();
 
   // Use composite ID format for cross-checklist dragging (use :: as separator to avoid UUID dash conflicts)
   const compositeId = `${checklistId}::${item.id}`;
@@ -34,21 +36,43 @@ export const ChecklistItem = ({ item, checklistId, disabled = false }: Checklist
     opacity: isDragging ? 0.5 : 1,
   };
 
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isEditing]);
+
   const handleSave = () => {
     if (editText.trim()) {
       updateItemText(checklistId, item.id, editText.trim());
+      setIsEditing(false);
+    } else if (item.text === '') {
+      // If it's a new empty item and user didn't type anything, delete it
+      deleteItem(checklistId, item.id);
     } else {
       setEditText(item.text);
+      setIsEditing(false);
     }
-    setIsEditing(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleSave();
+      e.preventDefault();
+      // Save current item first
+      if (editText.trim()) {
+        updateItemText(checklistId, item.id, editText.trim());
+      }
+      setIsEditing(false);
+      // Create new item below
+      insertItemAfter(checklistId, item.id);
     } else if (e.key === 'Escape') {
       setEditText(item.text);
       setIsEditing(false);
+    } else if (e.key === 'Backspace' && editText === '' && item.text === '') {
+      // Delete empty item on backspace
+      e.preventDefault();
+      deleteItem(checklistId, item.id);
     }
   };
 
@@ -56,80 +80,42 @@ export const ChecklistItem = ({ item, checklistId, disabled = false }: Checklist
     <div
       ref={setNodeRef}
       style={style}
-      className="group flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+      {...attributes}
+      {...listeners}
+      className={`flex items-center gap-3 py-2 ${!disabled ? 'cursor-grab active:cursor-grabbing' : ''}`}
     >
-      {/* Drag Handle - Only show for incomplete items */}
-      {!disabled ? (
-        <button
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
-          aria-label="Drag to reorder"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-5 w-5"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-          </svg>
-        </button>
-      ) : (
-        <div className="w-5"></div>
-      )}
-
       {/* Checkbox */}
       <input
         type="checkbox"
         checked={item.completed}
         onChange={() => toggleItemComplete(checklistId, item.id)}
-        className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500 cursor-pointer"
+        className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-0 cursor-pointer"
       />
 
       {/* Text */}
       {isEditing ? (
         <input
+          ref={inputRef}
           type="text"
           value={editText}
           onChange={(e) => setEditText(e.target.value)}
           onBlur={handleSave}
           onKeyDown={handleKeyDown}
-          className="flex-1 px-2 py-1 border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-          autoFocus
+          placeholder="New item..."
+          className="flex-1 bg-transparent outline-none border-none focus:ring-0"
         />
       ) : (
         <span
           onClick={() => setIsEditing(true)}
-          className={`flex-1 cursor-pointer ${
+          className={`flex-1 cursor-text ${
             item.completed
               ? 'line-through text-gray-400'
-              : 'text-gray-800'
+              : item.text === '' ? 'text-gray-400' : 'text-gray-800'
           }`}
         >
-          {item.text}
+          {item.text || 'New item...'}
         </span>
       )}
-
-      {/* Delete Button */}
-      <button
-        onClick={() => deleteItem(checklistId, item.id)}
-        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity"
-        aria-label="Delete item"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5"
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          <path
-            fillRule="evenodd"
-            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </button>
     </div>
   );
 };
