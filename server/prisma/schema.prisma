@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  checklists Checklist[]
+  textNotes  TextNote[]
+}
+
+model Checklist {
+  id        String   @id @default(uuid())
+  title     String
+  x         Float
+  y         Float
+  color     String   @default("default")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items ChecklistItem[]
+
+  @@index([userId])
+}
+
+model ChecklistItem {
+  id        String   @id @default(uuid())
+  text      String
+  completed Boolean  @default(false)
+  order     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  @@index([checklistId])
+}
+
+model TextNote {
+  id        String   @id @default(uuid())
+  text      String
+  x         Float
+  y         Float
+  fontSize  Float    @default(24)
+  color     String   @default("default")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}

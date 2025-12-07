@@ -80,10 +80,26 @@ export const ChecklistItem = ({ item, checklistId, disabled = false, autoFocus =
     <div
       ref={setNodeRef}
       style={style}
-      {...attributes}
-      {...listeners}
-      className={`flex items-center gap-3 py-2 ${!disabled ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      className="group flex items-center gap-2 py-2"
     >
+      {/* Drag handle */}
+      {!disabled && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="9" cy="6" r="1.5" />
+            <circle cx="15" cy="6" r="1.5" />
+            <circle cx="9" cy="12" r="1.5" />
+            <circle cx="15" cy="12" r="1.5" />
+            <circle cx="9" cy="18" r="1.5" />
+            <circle cx="15" cy="18" r="1.5" />
+          </svg>
+        </div>
+      )}
+
       {/* Checkbox */}
       <input
         type="checkbox"
@@ -116,6 +132,19 @@ export const ChecklistItem = ({ item, checklistId, disabled = false, autoFocus =
           {item.text || 'New item...'}
         </span>
       )}
+
+      {/* Delete button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          deleteItem(checklistId, item.id);
+        }}
+        className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-opacity"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   );
 };

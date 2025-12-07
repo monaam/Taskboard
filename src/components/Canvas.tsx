@@ -183,19 +183,6 @@ export const Canvas = () => {
     setIsPanning(false);
   };
 
-  const zoomIn = () => {
-    setZoom((prev) => Math.min(prev + 0.1, 3));
-  };
-
-  const zoomOut = () => {
-    setZoom((prev) => Math.max(prev - 0.1, 0.1));
-  };
-
-  const resetView = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-  };
-
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     // Only show context menu on canvas background
@@ -260,40 +247,6 @@ export const Canvas = () => {
           </div>
         </>
       )}
-
-      {/* Zoom Controls */}
-      <div className="absolute top-4 right-4 z-50 flex flex-col gap-2 bg-white rounded-lg shadow-lg p-2">
-        <button
-          onClick={zoomIn}
-          className="p-2 hover:bg-gray-100 rounded transition-colors"
-          title="Zoom In (Ctrl + Scroll)"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
-          </svg>
-        </button>
-        <button
-          onClick={zoomOut}
-          className="p-2 hover:bg-gray-100 rounded transition-colors"
-          title="Zoom Out (Ctrl + Scroll)"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
-          </svg>
-        </button>
-        <button
-          onClick={resetView}
-          className="p-2 hover:bg-gray-100 rounded transition-colors"
-          title="Reset View"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </button>
-        <div className="text-center text-xs text-gray-600 py-1">
-          {Math.round(zoom * 100)}%
-        </div>
-      </div>
 
       {/* Canvas */}
       <div
