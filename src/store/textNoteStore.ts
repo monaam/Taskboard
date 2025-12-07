@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { TextNoteState, ChecklistColor } from '../types';
 import { apiClient } from '../api/client';
 
-const generateId = () => crypto.randomUUID();
+//const generateId = () => crypto.randomUUID();
 
 // Transform API response
 const transformTextNote = (data: any) => ({
