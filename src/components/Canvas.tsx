@@ -4,6 +4,7 @@ import {
   pointerWithin,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -27,13 +28,32 @@ export const Canvas = () => {
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; canvasX: number; canvasY: number } | null>(null);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const lastTouchDistance = useRef<number | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  // DnD sensors for item dragging
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.matchMedia('(max-width: 768px)').matches || 'ontouchstart' in window);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // DnD sensors for item dragging (including touch support)
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Require 8px movement before drag starts
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 8,
       },
     }),
     useSensor(KeyboardSensor)
@@ -56,6 +76,53 @@ export const Canvas = () => {
     element.addEventListener('wheel', handleWheel, { passive: false });
     return () => element.removeEventListener('wheel', handleWheel);
   }, []);
+
+  // Touch handlers for mobile pan and pinch-to-zoom
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    const isCanvasArea = target.classList.contains('canvas-background') ||
+                         target.classList.contains('canvas-grid') ||
+                         target.classList.contains('canvas-content');
+
+    if (isCanvasArea) {
+      if (e.touches.length === 1) {
+        // Single touch - pan
+        setIsPanning(true);
+        setPanStart({ x: e.touches[0].clientX - pan.x, y: e.touches[0].clientY - pan.y });
+      } else if (e.touches.length === 2) {
+        // Two touches - prepare for pinch zoom
+        const distance = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        lastTouchDistance.current = distance;
+      }
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && isPanning) {
+      // Single touch pan
+      setPan({
+        x: e.touches[0].clientX - panStart.x,
+        y: e.touches[0].clientY - panStart.y,
+      });
+    } else if (e.touches.length === 2 && lastTouchDistance.current !== null) {
+      // Pinch to zoom
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const delta = (distance - lastTouchDistance.current) * 0.005;
+      setZoom((prev) => Math.min(Math.max(0.3, prev + delta), 3));
+      lastTouchDistance.current = distance;
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsPanning(false);
+    lastTouchDistance.current = null;
+  };
 
   // Handle drag start
   const handleDragStart = (event: DragStartEvent) => {
@@ -213,8 +280,23 @@ export const Canvas = () => {
     }
   };
 
+  // Mobile menu handlers - create at center of viewport
+  const handleMobileCreateChecklist = () => {
+    const canvasX = (-pan.x + window.innerWidth / 2) / zoom - 150; // Center horizontally
+    const canvasY = (-pan.y + window.innerHeight / 2) / zoom - 100; // Center vertically
+    createChecklist('New Checklist', canvasX, canvasY);
+    setShowMobileMenu(false);
+  };
+
+  const handleMobileCreateTextNote = () => {
+    const canvasX = (-pan.x + window.innerWidth / 2) / zoom;
+    const canvasY = (-pan.y + window.innerHeight / 2) / zoom;
+    createTextNote('Text', canvasX, canvasY);
+    setShowMobileMenu(false);
+  };
+
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-gray-200" onContextMenu={handleContextMenu}>
+    <div className="relative w-full h-screen overflow-hidden bg-gray-200 touch-none" onContextMenu={handleContextMenu}>
       {/* Context Menu */}
       {contextMenu && (
         <>
@@ -256,6 +338,9 @@ export const Canvas = () => {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         style={{
           cursor: isPanning ? 'grabbing' : 'grab',
         }}
@@ -320,6 +405,52 @@ export const Canvas = () => {
           </DragOverlay>
         </DndContext>
       </div>
+
+      {/* Mobile Floating Action Button */}
+      {isMobile && (
+        <>
+          {showMobileMenu && (
+            <div
+              className="fixed inset-0 z-40 bg-black/20"
+              onClick={() => setShowMobileMenu(false)}
+            />
+          )}
+          <div className="fixed bottom-6 right-6 z-50">
+            {showMobileMenu && (
+              <div className="absolute bottom-16 right-0 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden mb-2">
+                <button
+                  onClick={handleMobileCreateChecklist}
+                  className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 w-full"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                  New Checklist
+                </button>
+                <button
+                  onClick={handleMobileCreateTextNote}
+                  className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 w-full border-t border-gray-100"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  New Text
+                </button>
+              </div>
+            )}
+            <button
+              onClick={() => setShowMobileMenu(!showMobileMenu)}
+              className={`w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center transition-transform ${
+                showMobileMenu ? 'rotate-45' : ''
+              }`}
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

@@ -41,14 +41,14 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* User menu */}
-      <div className="fixed top-4 left-4 z-50 flex items-center gap-2">
-        <span className="text-sm text-gray-600 bg-white px-3 py-1 rounded-lg shadow">
+      {/* User menu - responsive positioning */}
+      <div className="fixed top-2 left-2 sm:top-4 sm:left-4 z-50 flex items-center gap-1 sm:gap-2">
+        <span className="text-xs sm:text-sm text-gray-600 bg-white px-2 sm:px-3 py-1 rounded-lg shadow truncate max-w-[100px] sm:max-w-none">
           {user.username}
         </span>
         <button
           onClick={logout}
-          className="text-sm text-gray-500 hover:text-gray-700 bg-white px-3 py-1 rounded-lg shadow hover:shadow-md transition-shadow"
+          className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 bg-white px-2 sm:px-3 py-1 rounded-lg shadow hover:shadow-md transition-shadow"
         >
           Logout
         </button>

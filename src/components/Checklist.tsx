@@ -66,7 +66,7 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
-  // Drag checklist card on canvas
+  // Drag checklist card on canvas (mouse)
   const handleCardMouseDown = (e: React.MouseEvent) => {
     // Only drag if clicking on the header
     if ((e.target as HTMLElement).closest('.checklist-header')) {
@@ -80,6 +80,42 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
     }
   };
 
+  // Touch handlers for mobile checklist dragging
+  const handleCardTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest('.checklist-header')) {
+      const touch = e.touches[0];
+      dragStartRef.current = {
+        x: (touch.clientX - pan.x) / zoom - (checklist?.x || 0),
+        y: (touch.clientY - pan.y) / zoom - (checklist?.y || 0),
+      };
+      setIsDragging(true);
+    }
+  };
+
+  const handleCardTouchMove = useCallback((e: TouchEvent) => {
+    if (!checklist || !isDragging) return;
+    const touch = e.touches[0];
+    const newX = (touch.clientX - pan.x) / zoom - dragStartRef.current.x;
+    const newY = (touch.clientY - pan.y) / zoom - dragStartRef.current.y;
+    updateChecklistPosition(checklistId, newX, newY);
+  }, [checklistId, checklist, isDragging, updateChecklistPosition, zoom, pan]);
+
+  const handleCardTouchEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Add touch event listeners
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('touchmove', handleCardTouchMove, { passive: false });
+      window.addEventListener('touchend', handleCardTouchEnd);
+      return () => {
+        window.removeEventListener('touchmove', handleCardTouchMove);
+        window.removeEventListener('touchend', handleCardTouchEnd);
+      };
+    }
+  }, [isDragging, handleCardTouchMove, handleCardTouchEnd]);
+
   if (!checklist) return null;
 
   const colorStyles = CHECKLIST_COLORS[checklist.color || 'default'];
@@ -88,7 +124,8 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
     <div
       ref={cardRef}
       onMouseDown={handleCardMouseDown}
-      className={`w-96 rounded-xl shadow-xl border border-gray-200 ${colorStyles.bg}`}
+      onTouchStart={handleCardTouchStart}
+      className={`w-[calc(100vw-2rem)] max-w-96 rounded-xl shadow-xl border border-gray-200 ${colorStyles.bg}`}
       style={{
         cursor: isDragging ? 'grabbing' : 'default',
       }}

@@ -98,6 +98,42 @@ export const TextNote = ({ noteId, zoom, pan }: TextNoteProps) => {
     setIsDragging(true);
   };
 
+  // Touch handlers for mobile dragging
+  const handleTouchDragStart = (e: React.TouchEvent) => {
+    if (isEditing) return;
+    const touch = e.touches[0];
+    dragStartRef.current = {
+      x: (touch.clientX - pan.x) / zoom - (note?.x || 0),
+      y: (touch.clientY - pan.y) / zoom - (note?.y || 0),
+    };
+    setIsDragging(true);
+  };
+
+  const handleTouchDragMove = useCallback((e: TouchEvent) => {
+    if (!note || !isDragging) return;
+    const touch = e.touches[0];
+    const newX = (touch.clientX - pan.x) / zoom - dragStartRef.current.x;
+    const newY = (touch.clientY - pan.y) / zoom - dragStartRef.current.y;
+    updateTextNotePosition(noteId, newX, newY);
+  }, [noteId, note, isDragging, updateTextNotePosition, zoom, pan]);
+
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false);
+    setIsResizing(false);
+  }, []);
+
+  // Touch event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('touchmove', handleTouchDragMove, { passive: false });
+      window.addEventListener('touchend', handleTouchEnd);
+      return () => {
+        window.removeEventListener('touchmove', handleTouchDragMove);
+        window.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+  }, [isDragging, handleTouchDragMove, handleTouchEnd]);
+
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -133,6 +169,7 @@ export const TextNote = ({ noteId, zoom, pan }: TextNoteProps) => {
     <div
       className="group relative"
       onMouseDown={handleDragStart}
+      onTouchStart={handleTouchDragStart}
       style={{
         cursor: isDragging ? 'grabbing' : isEditing ? 'text' : 'grab',
       }}
@@ -165,8 +202,8 @@ export const TextNote = ({ noteId, zoom, pan }: TextNoteProps) => {
         </div>
       )}
 
-      {/* Controls - show on hover */}
-      <div className="absolute -top-8 right-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+      {/* Controls - always visible on mobile, show on hover for desktop */}
+      <div className="absolute -top-8 right-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex gap-1">
         {/* Menu button */}
         <div className="relative">
           <button
@@ -223,7 +260,7 @@ export const TextNote = ({ noteId, zoom, pan }: TextNoteProps) => {
       {/* Resize handle - bottom right corner */}
       <div
         onMouseDown={handleResizeStart}
-        className="absolute -bottom-2 -right-2 w-4 h-4 opacity-0 group-hover:opacity-100 cursor-ns-resize transition-opacity"
+        className="absolute -bottom-2 -right-2 w-4 h-4 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 cursor-ns-resize transition-opacity"
         title="Drag to resize"
       >
         <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="currentColor">

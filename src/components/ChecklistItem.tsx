@@ -82,12 +82,12 @@ export const ChecklistItem = ({ item, checklistId, disabled = false, autoFocus =
       style={style}
       className="group flex items-center gap-2 py-2"
     >
-      {/* Drag handle */}
+      {/* Drag handle - always visible on mobile (touch devices) */}
       {!disabled && (
         <div
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="cursor-grab active:cursor-grabbing p-1 text-gray-400 hover:text-gray-600 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity touch-none"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="9" cy="6" r="1.5" />
@@ -133,13 +133,13 @@ export const ChecklistItem = ({ item, checklistId, disabled = false, autoFocus =
         </span>
       )}
 
-      {/* Delete button */}
+      {/* Delete button - always visible on mobile */}
       <button
         onClick={(e) => {
           e.stopPropagation();
           deleteItem(checklistId, item.id);
         }}
-        className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-opacity"
+        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-opacity"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
