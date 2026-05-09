@@ -23,8 +23,14 @@ export const Canvas = () => {
   const { textNotes, createTextNote } = useTextNoteStore();
   const [activeItem, setActiveItem] = useState<{ item: ChecklistItemType; checklistId: string } | null>(null);
   const [overChecklistId, setOverChecklistId] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(() => {
+    const saved = localStorage.getItem('taskManager_zoom');
+    return saved ? parseFloat(saved) : 1;
+  });
+  const [pan, setPan] = useState(() => {
+    const saved = localStorage.getItem('taskManager_pan');
+    return saved ? JSON.parse(saved) : { x: 0, y: 0 };
+  });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; canvasX: number; canvasY: number } | null>(null);
@@ -42,6 +48,16 @@ export const Canvas = () => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Persist zoom to localStorage
+  useEffect(() => {
+    localStorage.setItem('taskManager_zoom', zoom.toString());
+  }, [zoom]);
+
+  // Persist pan to localStorage
+  useEffect(() => {
+    localStorage.setItem('taskManager_pan', JSON.stringify(pan));
+  }, [pan]);
 
   // DnD sensors for item dragging (including touch support)
   const sensors = useSensors(
