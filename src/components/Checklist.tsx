@@ -24,7 +24,7 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
   });
   const checklist = checklists.find((c) => c.id === checklistId);
 
-  const [hideCompleted, setHideCompleted] = useState(false);
+  const [hideCompleted, setHideCompleted] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const cardRef = useRef<HTMLDivElement>(null);
