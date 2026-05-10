@@ -43,6 +43,7 @@ export const Checklist = ({
   const checklist = checklistProp || checklists.find((c) => c.id === checklistId);
 
   const [hideCompleted, setHideCompleted] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(listViewMode); // Start collapsed in list view
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const cardRef = useRef<HTMLDivElement>(null);
@@ -163,10 +164,13 @@ export const Checklist = ({
           isLast={isLast}
           onMoveUp={onMoveUp}
           onMoveDown={onMoveDown}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
         />
 
-        {/* Items list - Always droppable */}
-        <div ref={setDroppableRef} className="min-h-[60px]">
+        {/* Items list - Always droppable, hidden when collapsed in list view */}
+        {(!listViewMode || !isCollapsed) && (
+          <div ref={setDroppableRef} className="min-h-[60px]">
           {incompleteItems.length === 0 && completedItems.length === 0 ? (
             <p className="text-center text-gray-400 py-8">
               {hideCompleted && checklist.items.length > 0
@@ -217,6 +221,7 @@ export const Checklist = ({
             </>
           )}
         </div>
+        )}
       </div>
     </div>
   );

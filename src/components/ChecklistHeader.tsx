@@ -12,6 +12,8 @@ interface ChecklistHeaderProps {
   isLast?: boolean;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 const COLOR_OPTIONS: { color: ChecklistColor; dot: string }[] = [
@@ -37,7 +39,9 @@ export const ChecklistHeader = ({
   isFirst = false,
   isLast = false,
   onMoveUp,
-  onMoveDown
+  onMoveDown,
+  isCollapsed = false,
+  onToggleCollapse
 }: ChecklistHeaderProps) => {
   const { checklists, updateChecklistTitle, updateChecklistColor, deleteChecklist, deleteAllCompleted, selectAll, deselectAll } = useChecklistStore();
   const checklist = checklists.find((c) => c.id === checklistId);
@@ -101,12 +105,25 @@ export const ChecklistHeader = ({
             autoFocus
           />
         ) : (
-          <h1
-            onClick={() => setIsEditing(true)}
-            className="flex-1 text-2xl font-bold text-gray-800 cursor-pointer hover:text-blue-600 transition-colors"
+          <div
+            className="flex items-center gap-2 flex-1 cursor-pointer"
+            onClick={() => listViewMode ? onToggleCollapse?.() : setIsEditing(true)}
+            onDoubleClick={() => listViewMode && setIsEditing(true)}
           >
-            {checklist.title}
-          </h1>
+            {listViewMode && (
+              <svg
+                className={`w-5 h-5 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            )}
+            <h1 className="text-2xl font-bold text-gray-800 hover:text-blue-600 transition-colors">
+              {checklist.title}
+            </h1>
+          </div>
         )}
 
         {/* Up/Down buttons for list view */}
@@ -141,11 +158,12 @@ export const ChecklistHeader = ({
           </div>
         )}
 
-        {/* Three dots menu */}
-        <div className="relative ml-2">
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+        {/* Three dots menu - hidden when collapsed in list view */}
+        {(!listViewMode || !isCollapsed) && (
+          <div className="relative ml-2">
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
@@ -248,11 +266,15 @@ export const ChecklistHeader = ({
               </div>
             </>
           )}
-        </div>
+          </div>
+        )}
       </div>
-      <p className="text-sm text-gray-500">
-        {checklist.items.length} items • {checklist.items.filter(item => item.completed).length} completed
-      </p>
+      {/* Item count - hidden when collapsed in list view */}
+      {(!listViewMode || !isCollapsed) && (
+        <p className="text-sm text-gray-500">
+          {checklist.items.length} items • {checklist.items.filter(item => item.completed).length} completed
+        </p>
+      )}
     </div>
   );
 };
