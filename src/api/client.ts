@@ -2,6 +2,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 class ApiClient {
   private token: string | null = null;
+  private onUnauthorized?: () => void;
 
   constructor() {
     this.token = localStorage.getItem('token');
@@ -20,6 +21,10 @@ class ApiClient {
     return this.token;
   }
 
+  setOnUnauthorized(callback: () => void) {
+    this.onUnauthorized = callback;
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
@@ -36,6 +41,14 @@ class ApiClient {
     });
 
     if (!response.ok) {
+      // Handle 401 Unauthorized - token expired or invalid
+      if (response.status === 401) {
+        this.setToken(null);
+        if (this.onUnauthorized) {
+          this.onUnauthorized();
+        }
+      }
+
       const error = await response.json().catch(() => ({ error: 'Request failed' }));
       throw new Error(error.error || 'Request failed');
     }

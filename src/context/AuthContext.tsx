@@ -29,6 +29,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Set up 401 handler to automatically logout user
+    apiClient.setOnUnauthorized(() => {
+      setUser(null);
+    });
+
     const checkAuth = async () => {
       const token = apiClient.getToken();
       if (token) {
