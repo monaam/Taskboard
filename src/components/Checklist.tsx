@@ -10,19 +10,37 @@ import { ChecklistItem } from './ChecklistItem';
 import { CHECKLIST_COLORS } from '../types';
 
 interface ChecklistProps {
-  checklistId: string;
-  zoom: number;
-  pan: { x: number; y: number };
+  checklistId?: string;
+  checklist?: import('../types').Checklist;
+  zoom?: number;
+  pan?: { x: number; y: number };
+  listViewMode?: boolean;
+  dragHandleProps?: any;
+  isFirst?: boolean;
+  isLast?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
-export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
+export const Checklist = ({
+  checklistId,
+  checklist: checklistProp,
+  zoom = 1,
+  pan = { x: 0, y: 0 },
+  listViewMode = false,
+  dragHandleProps,
+  isFirst = false,
+  isLast = false,
+  onMoveUp,
+  onMoveDown
+}: ChecklistProps) => {
   const { checklists, updateChecklistPosition } = useChecklistStore();
 
   // Make this checklist a droppable area for cross-list dragging
   const { setNodeRef: setDroppableRef } = useDroppable({
-    id: `droppable-${checklistId}`,
+    id: `droppable-${checklistId || checklistProp?.id}`,
   });
-  const checklist = checklists.find((c) => c.id === checklistId);
+  const checklist = checklistProp || checklists.find((c) => c.id === checklistId);
 
   const [hideCompleted, setHideCompleted] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
@@ -47,8 +65,8 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
     // Account for zoom and pan when calculating position
     const newX = (e.clientX - pan.x) / zoom - dragStartRef.current.x;
     const newY = (e.clientY - pan.y) / zoom - dragStartRef.current.y;
-    updateChecklistPosition(checklistId, newX, newY);
-  }, [checklistId, checklist, updateChecklistPosition, zoom, pan]);
+    updateChecklistPosition(checklist.id, newX, newY);
+  }, [checklist, updateChecklistPosition, zoom, pan]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -68,6 +86,8 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
 
   // Drag checklist card on canvas (mouse)
   const handleCardMouseDown = (e: React.MouseEvent) => {
+    // Don't drag in list view mode
+    if (listViewMode) return;
     // Only drag if clicking on the header
     if ((e.target as HTMLElement).closest('.checklist-header')) {
       e.preventDefault(); // Prevent text selection
@@ -82,6 +102,8 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
 
   // Touch handlers for mobile checklist dragging
   const handleCardTouchStart = (e: React.TouchEvent) => {
+    // Don't drag in list view mode
+    if (listViewMode) return;
     if ((e.target as HTMLElement).closest('.checklist-header')) {
       const touch = e.touches[0];
       dragStartRef.current = {
@@ -97,8 +119,8 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
     const touch = e.touches[0];
     const newX = (touch.clientX - pan.x) / zoom - dragStartRef.current.x;
     const newY = (touch.clientY - pan.y) / zoom - dragStartRef.current.y;
-    updateChecklistPosition(checklistId, newX, newY);
-  }, [checklistId, checklist, isDragging, updateChecklistPosition, zoom, pan]);
+    updateChecklistPosition(checklist.id, newX, newY);
+  }, [checklist, isDragging, updateChecklistPosition, zoom, pan]);
 
   const handleCardTouchEnd = useCallback(() => {
     setIsDragging(false);
@@ -125,16 +147,22 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
       ref={cardRef}
       onMouseDown={handleCardMouseDown}
       onTouchStart={handleCardTouchStart}
-      className={`w-[calc(100vw-2rem)] max-w-96 rounded-xl shadow-xl border border-gray-200 ${colorStyles.bg}`}
+      className={`${listViewMode ? 'w-full' : 'w-[calc(100vw-2rem)] max-w-96'} rounded-xl shadow-xl border border-gray-200 ${colorStyles.bg}`}
       style={{
         cursor: isDragging ? 'grabbing' : 'default',
       }}
     >
       <div className="p-6">
         <ChecklistHeader
-          checklistId={checklistId}
+          checklistId={checklist.id}
           hideCompleted={hideCompleted}
           setHideCompleted={setHideCompleted}
+          listViewDragHandle={listViewMode ? dragHandleProps : undefined}
+          listViewMode={listViewMode}
+          isFirst={isFirst}
+          isLast={isLast}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
         />
 
         {/* Items list - Always droppable */}
@@ -149,7 +177,7 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
             <>
               {/* Incomplete Items - Draggable */}
               <SortableContext
-                items={incompleteItems.map((item) => `${checklistId}::${item.id}`)}
+                items={incompleteItems.map((item) => `${checklist.id}::${item.id}`)}
                 strategy={verticalListSortingStrategy}
               >
                 <div className="space-y-2">
@@ -157,7 +185,7 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
                     <ChecklistItem
                       key={item.id}
                       item={item}
-                      checklistId={checklistId}
+                      checklistId={checklist.id}
                       disabled={false}
                     />
                   ))}
@@ -181,7 +209,7 @@ export const Checklist = ({ checklistId, zoom, pan }: ChecklistProps) => {
                   <ChecklistItem
                     key={item.id}
                     item={item}
-                    checklistId={checklistId}
+                    checklistId={checklist.id}
                     disabled={true}
                   />
                 ))}

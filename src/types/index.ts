@@ -47,6 +47,7 @@ export type Checklist = {
   x: number;
   y: number;
   color: ChecklistColor;
+  order?: number;
   createdAt: number;
   updatedAt: number;
 };
@@ -64,6 +65,7 @@ export type ChecklistState = {
   updateItemText: (checklistId: string, itemId: string, text: string) => void;
   toggleItemComplete: (checklistId: string, itemId: string) => void;
   reorderItems: (checklistId: string, startIndex: number, endIndex: number) => void;
+  reorderChecklists: (startIndex: number, endIndex: number) => void;
   moveItemBetweenChecklists: (sourceChecklistId: string, targetChecklistId: string, itemId: string, targetIndex: number) => void;
   deleteAllCompleted: (checklistId: string) => void;
   uncheckAll: (checklistId: string) => void;

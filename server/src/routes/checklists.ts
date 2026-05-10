@@ -19,7 +19,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
           orderBy: { order: 'asc' },
         },
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { order: 'asc' },
     });
 
     res.json(checklists);
@@ -291,6 +291,41 @@ router.post('/move-item', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Move item error:', error);
     res.status(500).json({ error: 'Failed to move item' });
+  }
+});
+
+// Reorder checklists
+router.post('/reorder-checklists', async (req: AuthRequest, res: Response) => {
+  const prisma: PrismaClient = req.app.get('prisma');
+  const { checklistIds } = req.body; // Array of checklist IDs in new order
+
+  try {
+    // Verify ownership of all checklists
+    const checklists = await prisma.checklist.findMany({
+      where: {
+        id: { in: checklistIds },
+        userId: req.userId
+      },
+    });
+
+    if (checklists.length !== checklistIds.length) {
+      return res.status(404).json({ error: 'One or more checklists not found' });
+    }
+
+    // Update order for each checklist
+    await Promise.all(
+      checklistIds.map((checklistId: string, index: number) =>
+        prisma.checklist.update({
+          where: { id: checklistId },
+          data: { order: index },
+        })
+      )
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Reorder checklists error:', error);
+    res.status(500).json({ error: 'Failed to reorder checklists' });
   }
 });
 

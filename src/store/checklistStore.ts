@@ -11,6 +11,7 @@ const transformChecklist = (data: any): Checklist => ({
   x: data.x,
   y: data.y,
   color: data.color || 'default',
+  order: data.order ?? 0,
   createdAt: new Date(data.createdAt).getTime(),
   updatedAt: new Date(data.updatedAt).getTime(),
   items: (data.items || []).map((item: any) => ({
@@ -255,6 +256,22 @@ export const useChecklistStore = create<ChecklistState & {
       } catch (error) {
         console.error('Failed to reorder items:', error);
       }
+    }
+  },
+
+  reorderChecklists: async (startIndex: number, endIndex: number) => {
+    set((state) => {
+      const checklists = Array.from(state.checklists);
+      const [removed] = checklists.splice(startIndex, 1);
+      checklists.splice(endIndex, 0, removed);
+      return { checklists };
+    });
+
+    const state = get();
+    try {
+      await apiClient.reorderChecklists(state.checklists.map((c) => c.id));
+    } catch (error) {
+      console.error('Failed to reorder checklists:', error);
     }
   },
 

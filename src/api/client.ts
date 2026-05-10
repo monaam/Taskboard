@@ -116,6 +116,13 @@ class ApiClient {
     });
   }
 
+  async reorderChecklists(checklistIds: string[]) {
+    return this.request<any>('/checklists/reorder-checklists', {
+      method: 'POST',
+      body: JSON.stringify({ checklistIds }),
+    });
+  }
+
   async moveItemBetweenChecklists(
     sourceChecklistId: string,
     targetChecklistId: string,

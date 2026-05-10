@@ -6,6 +6,12 @@ interface ChecklistHeaderProps {
   checklistId: string;
   hideCompleted: boolean;
   setHideCompleted: (value: boolean) => void;
+  listViewDragHandle?: any;
+  listViewMode?: boolean;
+  isFirst?: boolean;
+  isLast?: boolean;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
 }
 
 const COLOR_OPTIONS: { color: ChecklistColor; dot: string }[] = [
@@ -22,7 +28,17 @@ const COLOR_OPTIONS: { color: ChecklistColor; dot: string }[] = [
   { color: 'gray', dot: 'bg-gray-400' },
 ];
 
-export const ChecklistHeader = ({ checklistId, hideCompleted, setHideCompleted }: ChecklistHeaderProps) => {
+export const ChecklistHeader = ({
+  checklistId,
+  hideCompleted,
+  setHideCompleted,
+  listViewDragHandle,
+  listViewMode = false,
+  isFirst = false,
+  isLast = false,
+  onMoveUp,
+  onMoveDown
+}: ChecklistHeaderProps) => {
   const { checklists, updateChecklistTitle, updateChecklistColor, deleteChecklist, deleteAllCompleted, selectAll, deselectAll } = useChecklistStore();
   const checklist = checklists.find((c) => c.id === checklistId);
 
@@ -59,7 +75,10 @@ export const ChecklistHeader = ({ checklistId, hideCompleted, setHideCompleted }
   return (
     <div className="mb-6">
       {/* Drag Handle */}
-      <div className={`checklist-header flex justify-center py-2 -mx-6 -mt-6 mb-4 ${colorStyles.header} rounded-t-xl cursor-grab active:cursor-grabbing select-none hover:opacity-80 transition-opacity`}>
+      <div
+        {...(listViewDragHandle || {})}
+        className={`checklist-header flex justify-center py-2 -mx-6 -mt-6 mb-4 ${colorStyles.header} rounded-t-xl cursor-grab active:cursor-grabbing select-none hover:opacity-80 transition-opacity`}
+      >
         <svg className="w-6 h-4 text-gray-500" viewBox="0 0 24 12" fill="currentColor">
           <circle cx="4" cy="3" r="1.5" />
           <circle cx="12" cy="3" r="1.5" />
@@ -89,6 +108,39 @@ export const ChecklistHeader = ({ checklistId, hideCompleted, setHideCompleted }
             {checklist.title}
           </h1>
         )}
+
+        {/* Up/Down buttons for list view */}
+        {listViewMode && (
+          <div className="flex items-center gap-1 ml-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveUp?.();
+              }}
+              disabled={isFirst}
+              className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-30 disabled:hover:text-gray-600 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+              title="Move up"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveDown?.();
+              }}
+              disabled={isLast}
+              className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-30 disabled:hover:text-gray-600 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+              title="Move down"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* Three dots menu */}
         <div className="relative ml-2">
           <button
