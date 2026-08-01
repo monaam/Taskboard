@@ -4,12 +4,16 @@ import { useChecklistStore } from './store/checklistStore';
 import { useTextNoteStore } from './store/textNoteStore';
 import { Canvas } from './components/Canvas';
 import { ItemDetailPanel } from './components/ItemDetailPanel';
+import { PriorityView } from './components/PriorityView';
 import { Auth } from './components/Auth';
+import { useViewStore } from './store/uiStore';
 
 function AppContent() {
   const { user, isLoading: authLoading, logout } = useAuth();
   const { loadChecklists, isLoaded: checklistsLoaded } = useChecklistStore();
   const { loadTextNotes, isLoaded: textNotesLoaded } = useTextNoteStore();
+  const view = useViewStore((s) => s.view);
+  const setView = useViewStore((s) => s.setView);
 
   useEffect(() => {
     if (user) {
@@ -56,10 +60,43 @@ function AppContent() {
         >
           Logout
         </button>
+
+        {/* Lives in this cluster rather than inside either view, so it exists in
+            both with no duplicated markup and no new z-index. Hidden below sm:
+            the priority view is a desktop surface with no mobile layout. */}
+        <div
+          role="group"
+          aria-label="View"
+          className="hidden sm:flex items-center gap-0.5 bg-white rounded-lg shadow p-0.5"
+        >
+          <button
+            type="button"
+            onClick={() => setView('board')}
+            aria-pressed={view === 'board'}
+            className={`text-sm px-3 py-1 rounded-md transition-colors ${
+              view === 'board' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Board
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('priority')}
+            aria-pressed={view === 'priority'}
+            className={`text-sm px-3 py-1 rounded-md transition-colors ${
+              view === 'priority' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Priority
+          </button>
+        </div>
       </div>
 
-      {/* Canvas */}
-      <Canvas />
+      {/* Branching here, not inside Canvas: its root is overflow-hidden +
+          touch-none, which is exactly wrong for a long scrolling page.
+          Unmounting Canvas loses nothing — zoom and pan are re-read from
+          localStorage in the useState initializers on remount. */}
+      {view === 'board' ? <Canvas /> : <PriorityView />}
 
       {/* Sibling of Canvas, never inside it — .canvas-content is transformed. */}
       <ItemDetailPanel />

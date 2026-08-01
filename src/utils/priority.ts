@@ -29,6 +29,13 @@ const PARTIAL_CHIP = 'bg-gray-100 text-gray-500';
 export type PriorityTag = { label: string; chip: string; title: string };
 
 /**
+ * Tier chip for a fully-triaged pair. Exposed so the priority matrix colors its
+ * cells from the same table the row badges use.
+ */
+export const getPriorityChip = (impact: Impact, effort: Effort): string =>
+  TIER_CHIPS[IMPACT_RANK[impact] + EASE_RANK[effort]];
+
+/**
  * Impact and effort collapse into one tag. The two label vocabularies don't
  * overlap (Low/Medium/High vs Quick/Moderate/Heavy), so a single-dimension chip
  * is still unambiguous about which field it came from.
@@ -40,7 +47,7 @@ export const getPriorityTag = (
   if (impact && effort) {
     return {
       label: `${IMPACT_META[impact].label} · ${EFFORT_META[effort].label}`,
-      chip: TIER_CHIPS[IMPACT_RANK[impact] + EASE_RANK[effort]],
+      chip: getPriorityChip(impact, effort),
       title: `Impact: ${IMPACT_META[impact].label} · Effort: ${EFFORT_META[effort].label}`,
     };
   }
