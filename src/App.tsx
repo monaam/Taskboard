@@ -5,6 +5,7 @@ import { useTextNoteStore } from './store/textNoteStore';
 import { Canvas } from './components/Canvas';
 import { ItemDetailPanel } from './components/ItemDetailPanel';
 import { PriorityView } from './components/PriorityView';
+import { ScheduleView } from './components/ScheduleView';
 import { Auth } from './components/Auth';
 import { useViewStore } from './store/uiStore';
 
@@ -89,6 +90,16 @@ function AppContent() {
           >
             Priority
           </button>
+          <button
+            type="button"
+            onClick={() => setView('schedule')}
+            aria-pressed={view === 'schedule'}
+            className={`text-sm px-3 py-1 rounded-md transition-colors ${
+              view === 'schedule' ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Schedule
+          </button>
         </div>
       </div>
 
@@ -96,7 +107,12 @@ function AppContent() {
           touch-none, which is exactly wrong for a long scrolling page.
           Unmounting Canvas loses nothing — zoom and pan are re-read from
           localStorage in the useState initializers on remount. */}
-      {view === 'board' ? <Canvas /> : <PriorityView />}
+      {/* One line per view rather than a nested ternary — at three branches the
+          ternary chain stops being readable and every future view makes it
+          worse. */}
+      {view === 'board' && <Canvas />}
+      {view === 'priority' && <PriorityView />}
+      {view === 'schedule' && <ScheduleView />}
 
       {/* Sibling of Canvas, never inside it — .canvas-content is transformed. */}
       <ItemDetailPanel />

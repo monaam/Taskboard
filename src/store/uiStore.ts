@@ -17,17 +17,26 @@ export const useItemDetailStore = create<ItemDetailState>()((set) => ({
   closeItemDetail: () => set({ openItemId: null }),
 }));
 
-export type AppView = 'board' | 'priority';
+export type AppView = 'board' | 'priority' | 'schedule';
 
 // Same localStorage convention as taskManager_zoom / taskManager_pan.
 const VIEW_KEY = 'taskManager_view';
+
+// A membership check rather than a chain of ternaries — it stays one line per
+// new view instead of one nested branch, and still degrades anything unknown
+// (or absent, or garbage left by an older build) to 'board'.
+const STORED_VIEWS: AppView[] = ['priority', 'schedule'];
+
+const readStoredView = (): AppView => {
+  const stored = localStorage.getItem(VIEW_KEY);
+  return STORED_VIEWS.find((v) => v === stored) ?? 'board';
+};
 
 // A store rather than useState in AppContent because the priority view's empty
 // state needs a "Go to the board" button, and prop-drilling a setter through it
 // buys nothing.
 export const useViewStore = create<{ view: AppView; setView: (v: AppView) => void }>()((set) => ({
-  // Anything other than the one known value degrades to 'board'.
-  view: localStorage.getItem(VIEW_KEY) === 'priority' ? 'priority' : 'board',
+  view: readStoredView(),
   // Written in the setter, not an effect: an effect fires on mount and rewrites
   // the value it just read, and costs an extra render per switch.
   setView: (view) => {
