@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { useChecklistStore } from './store/checklistStore';
 import { useTextNoteStore } from './store/textNoteStore';
 import { Canvas } from './components/Canvas';
+import { ItemDetailPanel } from './components/ItemDetailPanel';
 import { Auth } from './components/Auth';
 
 function AppContent() {
@@ -39,6 +40,9 @@ function AppContent() {
     );
   }
 
+  // Invariant: never add transform / filter / contain to the wrapper below. Any
+  // of them makes it the containing block for `position: fixed` descendants and
+  // breaks ItemDetailPanel's positioning.
   return (
     <div className="min-h-screen bg-gray-100">
       {/* User menu - responsive positioning */}
@@ -56,6 +60,9 @@ function AppContent() {
 
       {/* Canvas */}
       <Canvas />
+
+      {/* Sibling of Canvas, never inside it — .canvas-content is transformed. */}
+      <ItemDetailPanel />
     </div>
   );
 }

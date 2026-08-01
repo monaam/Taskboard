@@ -1,4 +1,5 @@
-export type Priority = 'low' | 'medium' | 'high';
+export type Impact = 'low' | 'medium' | 'high';
+export type Effort = 'quick' | 'moderate' | 'heavy';
 
 // Google Keep-like colors
 export type ChecklistColor =
@@ -28,16 +29,36 @@ export const CHECKLIST_COLORS: Record<ChecklistColor, { bg: string; header: stri
   gray: { bg: 'bg-gray-200', header: 'bg-gray-300' },
 };
 
+// Class strings must be written out in full — Tailwind scans source text and
+// cannot resolve interpolated class names.
+export const IMPACT_META: Record<Impact, { label: string; chip: string }> = {
+  low: { label: 'Low', chip: 'bg-gray-100 text-gray-600' },
+  medium: { label: 'Medium', chip: 'bg-amber-100 text-amber-700' },
+  high: { label: 'High', chip: 'bg-red-100 text-red-700' },
+};
+
+export const EFFORT_META: Record<Effort, { label: string; chip: string }> = {
+  quick: { label: 'Quick', chip: 'bg-green-100 text-green-700' },
+  moderate: { label: 'Moderate', chip: 'bg-blue-100 text-blue-700' },
+  heavy: { label: 'Heavy', chip: 'bg-purple-100 text-purple-700' },
+};
+
+export const IMPACT_ORDER: Impact[] = ['low', 'medium', 'high'];
+export const EFFORT_ORDER: Effort[] = ['quick', 'moderate', 'heavy'];
+
 export type ChecklistItem = {
   id: string;
   text: string;
   completed: boolean;
   createdAt: number;
   updatedAt: number;
-  subItems?: ChecklistItem[];
-  dueDate?: number;
-  notes?: string;
-  priority?: Priority;
+  // null means "not triaged". Dates are 'YYYY-MM-DD' strings, never Date —
+  // converting would shift the day in any timezone behind UTC.
+  scheduledFor?: string | null;
+  dueDate?: string | null;
+  impact?: Impact | null;
+  effort?: Effort | null;
+  notes?: string | null;
 };
 
 export type Checklist = {
@@ -71,10 +92,11 @@ export type ChecklistState = {
   uncheckAll: (checklistId: string) => void;
   selectAll: (checklistId: string) => void;
   deselectAll: (checklistId: string) => void;
-  addSubItem: (checklistId: string, parentId: string, text: string) => void;
-  setItemDueDate: (checklistId: string, itemId: string, dueDate: number | undefined) => void;
-  setItemNotes: (checklistId: string, itemId: string, notes: string) => void;
-  setItemPriority: (checklistId: string, itemId: string, priority: Priority | undefined) => void;
+  updateItemFields: (
+    checklistId: string,
+    itemId: string,
+    fields: Partial<Pick<ChecklistItem, 'scheduledFor' | 'dueDate' | 'impact' | 'effort' | 'notes'>>
+  ) => void;
 };
 
 export type DisplaySettings = {

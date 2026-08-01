@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Checklist, ChecklistItem, ChecklistState, Priority, ChecklistColor } from '../types';
+import { Checklist, ChecklistItem, ChecklistState, ChecklistColor } from '../types';
 import { apiClient } from '../api/client';
 
 const generateId = () => crypto.randomUUID();
@@ -20,6 +20,12 @@ const transformChecklist = (data: any): Checklist => ({
     completed: item.completed,
     createdAt: new Date(item.createdAt).getTime(),
     updatedAt: new Date(item.updatedAt).getTime(),
+    // Dates stay as 'YYYY-MM-DD' strings — no conversion
+    scheduledFor: item.scheduledFor ?? null,
+    dueDate: item.dueDate ?? null,
+    impact: item.impact ?? null,
+    effort: item.effort ?? null,
+    notes: item.notes ?? null,
   })),
 });
 
@@ -367,72 +373,27 @@ export const useChecklistStore = create<ChecklistState & {
     }
   },
 
-  // Optional features (not synced to backend for now)
-  addSubItem: (checklistId: string, parentId: string, text: string) => {
-    const newSubItem: ChecklistItem = {
-      id: generateId(),
-      text,
-      completed: false,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    set((state) => ({
-      checklists: state.checklists.map((c) => {
-        if (c.id !== checklistId) return c;
-        return {
-          ...c,
-          items: c.items.map((item) =>
-            item.id === parentId
-              ? { ...item, subItems: [...(item.subItems || []), newSubItem] }
-              : item
-          ),
-        };
-      }),
-    }));
-  },
-
-  setItemDueDate: (checklistId: string, itemId: string, dueDate: number | undefined) => {
+  updateItemFields: async (
+    checklistId: string,
+    itemId: string,
+    fields: Partial<Pick<ChecklistItem, 'scheduledFor' | 'dueDate' | 'impact' | 'effort' | 'notes'>>
+  ) => {
     set((state) => ({
       checklists: state.checklists.map((c) =>
         c.id === checklistId
           ? {
               ...c,
               items: c.items.map((i) =>
-                i.id === itemId ? { ...i, dueDate } : i
+                i.id === itemId ? { ...i, ...fields, updatedAt: Date.now() } : i
               ),
             }
           : c
       ),
     }));
-  },
-
-  setItemNotes: (checklistId: string, itemId: string, notes: string) => {
-    set((state) => ({
-      checklists: state.checklists.map((c) =>
-        c.id === checklistId
-          ? {
-              ...c,
-              items: c.items.map((i) =>
-                i.id === itemId ? { ...i, notes } : i
-              ),
-            }
-          : c
-      ),
-    }));
-  },
-
-  setItemPriority: (checklistId: string, itemId: string, priority: Priority | undefined) => {
-    set((state) => ({
-      checklists: state.checklists.map((c) =>
-        c.id === checklistId
-          ? {
-              ...c,
-              items: c.items.map((i) =>
-                i.id === itemId ? { ...i, priority } : i
-              ),
-            }
-          : c
-      ),
-    }));
+    try {
+      await apiClient.updateItem(checklistId, itemId, fields);
+    } catch (error) {
+      console.error('Failed to update item fields:', error);
+    }
   },
 }));

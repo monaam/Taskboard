@@ -4,6 +4,10 @@ import { authMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
+const IMPACTS = ['low', 'medium', 'high'];
+const EFFORTS = ['quick', 'moderate', 'heavy'];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 // All routes require auth
 router.use(authMiddleware);
 
@@ -167,7 +171,7 @@ router.post('/:id/items', async (req: AuthRequest, res: Response) => {
 router.patch('/:checklistId/items/:itemId', async (req: AuthRequest, res: Response) => {
   const prisma: PrismaClient = req.app.get('prisma');
   const { checklistId, itemId } = req.params;
-  const { text, completed } = req.body;
+  const { text, completed, scheduledFor, dueDate, impact, effort, notes } = req.body;
 
   try {
     // Verify ownership
@@ -179,11 +183,30 @@ router.patch('/:checklistId/items/:itemId', async (req: AuthRequest, res: Respon
       return res.status(404).json({ error: 'Checklist not found' });
     }
 
+    if (impact !== undefined && impact !== null && !IMPACTS.includes(impact)) {
+      return res.status(400).json({ error: `impact must be one of ${IMPACTS.join(', ')} or null` });
+    }
+
+    if (effort !== undefined && effort !== null && !EFFORTS.includes(effort)) {
+      return res.status(400).json({ error: `effort must be one of ${EFFORTS.join(', ')} or null` });
+    }
+
+    for (const [key, value] of [['scheduledFor', scheduledFor], ['dueDate', dueDate]] as const) {
+      if (value !== undefined && value !== null && !DATE_RE.test(value)) {
+        return res.status(400).json({ error: `${key} must be a YYYY-MM-DD string or null` });
+      }
+    }
+
     const item = await prisma.checklistItem.update({
       where: { id: itemId },
       data: {
         ...(text !== undefined && { text }),
         ...(completed !== undefined && { completed }),
+        ...(scheduledFor !== undefined && { scheduledFor }),
+        ...(dueDate !== undefined && { dueDate }),
+        ...(impact !== undefined && { impact }),
+        ...(effort !== undefined && { effort }),
+        ...(notes !== undefined && { notes }),
       },
     });
 

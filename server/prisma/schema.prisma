@@ -40,6 +40,13 @@ model ChecklistItem {
   id        String   @id @default(uuid())
   text      String
   completed Boolean  @default(false)
+
+  scheduledFor String?
+  dueDate      String?
+  impact       String?
+  effort       String?
+  notes        String?
+
   order     Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

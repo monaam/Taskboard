@@ -109,7 +109,19 @@ class ApiClient {
     });
   }
 
-  async updateItem(checklistId: string, itemId: string, data: { text?: string; completed?: boolean }) {
+  async updateItem(
+    checklistId: string,
+    itemId: string,
+    data: {
+      text?: string;
+      completed?: boolean;
+      scheduledFor?: string | null;
+      dueDate?: string | null;
+      impact?: string | null;
+      effort?: string | null;
+      notes?: string | null;
+    }
+  ) {
     return this.request<any>(`/checklists/${checklistId}/items/${itemId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
