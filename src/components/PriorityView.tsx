@@ -94,7 +94,11 @@ export const PriorityView = () => {
     <div className="min-h-screen w-full bg-gray-100 xl:h-screen xl:overflow-hidden">
       {/* pt-16 clears the fixed top-left cluster, which overlays this page. */}
       <div className="h-full px-6 pb-6 pt-16">
-        <div className="grid h-full grid-cols-1 gap-6 xl:grid-cols-2">
+        {/* 1/3 · 2/3, not an even split: the triage column only ever holds a
+            stack of fixed-height rows, while the matrix has nine cells to
+            divide, so width buys it far more. At 1440px that is a 448px left
+            column and ~282px matrix cells, up from 204px at 50/50. */}
+        <div className="grid h-full grid-cols-1 gap-6 xl:grid-cols-3">
           {/* min-h-0 is load-bearing: without it a flex child refuses to shrink
               below its content height and the overflow never engages. */}
           <section className="flex flex-col xl:min-h-0">
@@ -117,7 +121,7 @@ export const PriorityView = () => {
             </div>
           </section>
 
-          <section className="flex flex-col xl:min-h-0">
+          <section className="flex flex-col xl:col-span-2 xl:min-h-0">
             <div className="flex shrink-0 items-baseline gap-2">
               <h2 className="text-base font-semibold text-gray-700">Prioritized</h2>
               <span className="text-sm text-gray-400">{triagedCount}</span>

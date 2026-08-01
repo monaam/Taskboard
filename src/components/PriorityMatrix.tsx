@@ -77,8 +77,8 @@ const MatrixCell = ({ impact, effort, entries }: MatrixCellProps) => (
 
         The verb, not the pair: the axis headers already say "High"/"Quick", so
         repeating them here would spend the width restating the coordinates
-        instead of the conclusion. truncate because below xl a stacked cell can
-        get narrow enough to clip "Break down". */}
+        instead of the conclusion. truncate because below xl the columns stack
+        and a cell can get narrow enough to clip "Break down". */}
     <div
       className={`flex shrink-0 items-center justify-between gap-1 px-2 py-1 text-[11px] font-medium ${getPriorityChip(
         impact,
@@ -107,8 +107,8 @@ const MatrixCell = ({ impact, effort, entries }: MatrixCellProps) => (
                 <span className="min-w-0 flex-1 truncate text-[10px] uppercase tracking-wide text-gray-400">
                   {entry.checklistTitle}
                 </span>
-                {/* Icon only, date on the row's tooltip: at ~204px a visible
-                    date would cost more width than the item text can spare.
+                {/* Icon only, date on the row's tooltip: even at ~282px a
+                    visible date costs more width than the item text can spare.
                     Same glyph and blue as the board badge in ItemBadges, so the
                     two can't drift. */}
                 {entry.item.scheduledFor && (
