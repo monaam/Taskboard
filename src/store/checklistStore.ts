@@ -281,6 +281,27 @@ export const useChecklistStore = create<ChecklistState & {
     }
   },
 
+  arrangeChecklists: async (positions: { id: string; x: number; y: number }[]) => {
+    if (positions.length === 0) return;
+
+    // One set() for the whole board, not N calls to updateChecklistPosition:
+    // Canvas, Checklist and ChecklistHeader all subscribe to the entire store,
+    // so N notifications would be N full board re-renders.
+    const byId = new Map(positions.map((p) => [p.id, p]));
+    set((state) => ({
+      checklists: state.checklists.map((c) => {
+        const next = byId.get(c.id);
+        return next ? { ...c, x: next.x, y: next.y, updatedAt: Date.now() } : c;
+      }),
+    }));
+
+    try {
+      await apiClient.setChecklistPositions(positions);
+    } catch (error) {
+      console.error('Failed to arrange checklists:', error);
+    }
+  },
+
   moveItemBetweenChecklists: async (
     sourceChecklistId: string,
     targetChecklistId: string,

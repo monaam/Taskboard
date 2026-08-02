@@ -352,6 +352,52 @@ router.post('/reorder-checklists', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Bulk-set checklist positions (auto-arrange)
+router.post('/positions', async (req: AuthRequest, res: Response) => {
+  const prisma: PrismaClient = req.app.get('prisma');
+  const { positions } = req.body; // Array of { id, x, y }
+
+  if (!Array.isArray(positions)) {
+    return res.status(400).json({ error: 'positions must be an array' });
+  }
+
+  // x and y are non-nullable Floats. A NaN serialises to JSON null, which would
+  // otherwise reach Prisma and blow up mid-transaction.
+  const invalid = positions.some(
+    (p) => !p || typeof p.id !== 'string' || !Number.isFinite(p.x) || !Number.isFinite(p.y)
+  );
+  if (invalid) {
+    return res.status(400).json({ error: 'Each position needs an id and finite x and y' });
+  }
+
+  try {
+    const ids = positions.map((p: { id: string }) => p.id);
+    const owned = await prisma.checklist.findMany({
+      where: { id: { in: ids }, userId: req.userId },
+    });
+
+    if (owned.length !== ids.length) {
+      return res.status(404).json({ error: 'One or more checklists not found' });
+    }
+
+    // Transactional so the board can never persist half arranged — a partial
+    // write would leave a tidy screen and a scrambled database.
+    await prisma.$transaction(
+      positions.map((p: { id: string; x: number; y: number }) =>
+        prisma.checklist.update({
+          where: { id: p.id },
+          data: { x: p.x, y: p.y },
+        })
+      )
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Set positions error:', error);
+    res.status(500).json({ error: 'Failed to set positions' });
+  }
+});
+
 // Bulk operations
 router.post('/:id/select-all', async (req: AuthRequest, res: Response) => {
   const prisma: PrismaClient = req.app.get('prisma');

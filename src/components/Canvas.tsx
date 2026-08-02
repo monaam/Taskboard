@@ -18,9 +18,10 @@ import { Checklist } from './Checklist';
 import { ChecklistListView } from './ChecklistListView';
 import { TextNote } from './TextNote';
 import { ChecklistItem as ChecklistItemType } from '../types';
+import { CardBox, GUTTER, MARGIN_X, columnsForWidth, packColumns } from '../utils/layout';
 
 export const Canvas = () => {
-  const { checklists, createChecklist, reorderItems, moveItemBetweenChecklists } = useChecklistStore();
+  const { checklists, createChecklist, reorderItems, moveItemBetweenChecklists, arrangeChecklists } = useChecklistStore();
   const { textNotes: allTextNotes, createTextNote } = useTextNoteStore();
   const [activeItem, setActiveItem] = useState<{ item: ChecklistItemType; checklistId: string } | null>(null);
   const [overChecklistId, setOverChecklistId] = useState<string | null>(null);
@@ -292,6 +293,49 @@ export const Canvas = () => {
     }
   };
 
+  // Pack every card into a masonry grid at the canvas origin and reset the view.
+  // Resetting the view is half the fix: pan and zoom persist to localStorage, so
+  // a tidy board parked in empty space is still a lost board.
+  const handleAutoArrange = () => {
+    if (checklists.length === 0) return;
+
+    // Read phase. One uninterrupted pass with no style writes or setState in
+    // between, so the whole board costs a single forced reflow.
+    //
+    // offsetWidth/offsetHeight, never getBoundingClientRect: .canvas-content
+    // carries scale(zoom), so a rect would be in visual pixels and need dividing
+    // back out. offsetHeight is untransformed border-box size — already in canvas
+    // units — so the layout is identical at any zoom.
+    //
+    // Walks `checklists` (store order) rather than the NodeList so DOM order can
+    // never leak into the layout. Card width is measured, not assumed to be 384:
+    // the card is w-[calc(100vw-2rem)] max-w-96, i.e. viewport-relative, and
+    // isMobile is locked at mount, so a narrow window yields narrower cards.
+    const boxes: CardBox[] = [];
+    let cardWidth = 0;
+    for (const checklist of checklists) {
+      const el = document.querySelector<HTMLElement>(`[data-checklist-id="${checklist.id}"]`);
+      // No DOM node: skip it, never estimate. Leaving a card where it is beats
+      // overlapping it onto a real one.
+      if (!el) continue;
+      boxes.push({ id: checklist.id, height: el.offsetHeight });
+      cardWidth = Math.max(cardWidth, el.offsetWidth);
+    }
+    // clientWidth, not innerWidth, which includes the scrollbar gutter.
+    const availableWidth = document.documentElement.clientWidth - MARGIN_X * 2;
+
+    if (boxes.length === 0 || cardWidth === 0) return;
+
+    const columns = columnsForWidth(availableWidth, cardWidth, GUTTER);
+    const placements = packColumns(boxes, { columns, cardWidth });
+
+    // Write phase.
+    setContextMenu(null);
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    arrangeChecklists(placements);
+  };
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-gray-200 touch-none" onContextMenu={handleContextMenu}>
       {isMobile ? (
@@ -314,6 +358,24 @@ export const Canvas = () => {
       ) : (
         /* Desktop Canvas View */
         <>
+          {/* Auto-arrange. Sibling of .canvas-background, never a descendant of
+              .canvas-content — that element is transformed, which would make it
+              the containing block for a position:fixed child. Bottom-left is the
+              only free corner: top-left is the user cluster and the right edge is
+              ItemDetailPanel. Declared before the context menu so that on a z-50
+              tie the menu, being later in the DOM, paints above this button. */}
+          <button
+            onClick={handleAutoArrange}
+            disabled={checklists.length === 0}
+            title="Tidy the board into a grid and reset the view"
+            className="fixed bottom-6 left-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-gray-200 text-sm text-gray-700 shadow-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h5a1 1 0 011 1v9a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM13 5a1 1 0 011-1h5a1 1 0 011 1v5a1 1 0 01-1 1h-5a1 1 0 01-1-1V5zM13 15a1 1 0 011-1h5a1 1 0 011 1v4a1 1 0 01-1 1h-5a1 1 0 01-1-1v-4z" />
+            </svg>
+            Auto-arrange
+          </button>
+
           {/* Context Menu */}
           {contextMenu && (
             <>
@@ -387,6 +449,10 @@ export const Canvas = () => {
             {checklists.map((checklist) => (
               <div
                 key={checklist.id}
+                // On the wrapper, not inside Checklist — that component is also
+                // rendered by ChecklistListView. The wrapper is position:absolute
+                // with no width, so it shrink-wraps the card exactly.
+                data-checklist-id={checklist.id}
                 style={{
                   position: 'absolute',
                   left: `${checklist.x}px`,

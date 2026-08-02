@@ -87,6 +87,7 @@ export type ChecklistState = {
   toggleItemComplete: (checklistId: string, itemId: string) => void;
   reorderItems: (checklistId: string, startIndex: number, endIndex: number) => void;
   reorderChecklists: (startIndex: number, endIndex: number) => void;
+  arrangeChecklists: (positions: { id: string; x: number; y: number }[]) => void;
   moveItemBetweenChecklists: (sourceChecklistId: string, targetChecklistId: string, itemId: string, targetIndex: number) => void;
   deleteAllCompleted: (checklistId: string) => void;
   uncheckAll: (checklistId: string) => void;

@@ -148,6 +148,13 @@ class ApiClient {
     });
   }
 
+  async setChecklistPositions(positions: { id: string; x: number; y: number }[]) {
+    return this.request<{ success: boolean }>('/checklists/positions', {
+      method: 'POST',
+      body: JSON.stringify({ positions }),
+    });
+  }
+
   async moveItemBetweenChecklists(
     sourceChecklistId: string,
     targetChecklistId: string,
