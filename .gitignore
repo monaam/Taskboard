@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Secrets. No leading slash, so these match at any depth — server/.env included.
+.env
+.env.*
+# A committed template is the point of having one; it must hold no real values.
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
