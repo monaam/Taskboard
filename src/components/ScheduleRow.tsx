@@ -30,6 +30,7 @@ const SEG_ON = 'bg-blue-100 text-blue-700 border-transparent';
  */
 export const ScheduleRow = ({ item, checklistId, checklistTitle, today }: ScheduleRowProps) => {
   const updateItemFields = useChecklistStore((s) => s.updateItemFields);
+  const toggleItemComplete = useChecklistStore((s) => s.toggleItemComplete);
 
   const scheduled = item.scheduledFor ?? '';
   const priority = getPriorityTag(item.impact, item.effort);
@@ -63,6 +64,20 @@ export const ScheduleRow = ({ item, checklistId, checklistTitle, today }: Schedu
   return (
     <div className="px-4 py-3">
       <div className="flex items-start gap-2">
+        {/* Checking it removes the row: isEligible drops completed items from
+            both views, which is the contract — these are "what to do next"
+            surfaces, and the board is where done work lives. checked is bound to
+            the real field rather than hardcoded false even though a completed
+            item never renders here, so the control can't lie if that ever
+            changes. */}
+        <input
+          type="checkbox"
+          checked={item.completed}
+          onChange={() => toggleItemComplete(checklistId, item.id)}
+          aria-label="Mark complete"
+          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-0"
+        />
+
         {/* No truncation: you have to be able to read an item to schedule it. */}
         <p className="min-w-0 flex-1 break-words text-sm text-gray-800">{item.text}</p>
 
@@ -117,7 +132,9 @@ export const ScheduleRow = ({ item, checklistId, checklistTitle, today }: Schedu
           valve, not the intent — it only engages if the row genuinely cannot
           fit, and two lines beat being clipped by the card's overflow-hidden
           edge. */}
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {/* pl-6 = the checkbox (h-4) plus the gap-2 above it, so the controls line
+          up under the item text rather than under its checkbox. */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5 pl-6">
         <button
           type="button"
           aria-pressed={scheduled === today}

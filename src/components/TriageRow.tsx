@@ -37,6 +37,7 @@ interface TriageRowProps {
 
 export const TriageRow = ({ item, checklistId }: TriageRowProps) => {
   const updateItemFields = useChecklistStore((s) => s.updateItemFields);
+  const toggleItemComplete = useChecklistStore((s) => s.toggleItemComplete);
 
   // Clicking the active value clears it — that is why these are aria-pressed
   // toggles in a role="group", not radios. A radio you can un-check is a lie to
@@ -50,6 +51,20 @@ export const TriageRow = ({ item, checklistId }: TriageRowProps) => {
   return (
     <div className="px-4 py-3">
       <div className="flex items-start gap-3">
+        {/* Checking it removes the row: isEligible drops completed items from
+            both views, which is the contract — these are "what to do next"
+            surfaces, and the board is where done work lives. checked is bound to
+            the real field rather than hardcoded false even though a completed
+            item never renders here, so the control can't lie if that ever
+            changes. */}
+        <input
+          type="checkbox"
+          checked={item.completed}
+          onChange={() => toggleItemComplete(checklistId, item.id)}
+          aria-label="Mark complete"
+          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-0"
+        />
+
         {/* No truncation: you have to be able to read an item to triage it. */}
         <p className="min-w-0 flex-1 break-words text-sm text-gray-800">{item.text}</p>
         <button
@@ -82,8 +97,16 @@ export const TriageRow = ({ item, checklistId }: TriageRowProps) => {
 
           flex-wrap is a safety valve, not the intent: it only engages if the
           row genuinely cannot fit, and dropping to two lines beats being
-          clipped by the card's overflow-hidden edge. */}
-      <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+          clipped by the card's overflow-hidden edge.
+
+          pl-7 = the checkbox (h-4) plus the gap-3 above it, so the segments stay
+          aligned with the item text the way they were before there was a
+          checkbox. It spends 28px of the budget described above, which is most
+          of the slack at exactly 1280px — expect the wrap valve to engage in the
+          1280–1350px band and not above it. Alignment is worth it: the
+          alternative is segments starting under the checkbox while the text they
+          describe starts elsewhere. */}
+      <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 pl-7">
         <div role="group" aria-label="Impact" className="flex items-center gap-1">
           {IMPACT_ORDER.map((value) => {
             const active = item.impact === value;
