@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Checklist, ChecklistItem, ChecklistState, ChecklistColor } from '../types';
+import { Checklist, ChecklistState, ChecklistColor, ItemFields } from '../types';
 import { apiClient } from '../api/client';
 
 const generateId = () => crypto.randomUUID();
@@ -109,7 +109,7 @@ export const useChecklistStore = create<ChecklistState & {
     }
   },
 
-  addItem: async (checklistId: string, text: string) => {
+  addItem: async (checklistId: string, text: string, fields?: ItemFields) => {
     const tempId = generateId();
     set((state) => ({
       checklists: state.checklists.map((c) =>
@@ -118,14 +118,21 @@ export const useChecklistStore = create<ChecklistState & {
               ...c,
               items: [
                 ...c.items,
-                { id: tempId, text, completed: false, createdAt: Date.now(), updatedAt: Date.now() },
+                {
+                  id: tempId,
+                  text,
+                  completed: false,
+                  createdAt: Date.now(),
+                  updatedAt: Date.now(),
+                  ...fields,
+                },
               ],
             }
           : c
       ),
     }));
     try {
-      const item = await apiClient.addItem(checklistId, { text });
+      const item = await apiClient.addItem(checklistId, { text, ...fields });
       // Update with real ID
       set((state) => ({
         checklists: state.checklists.map((c) =>
@@ -394,11 +401,7 @@ export const useChecklistStore = create<ChecklistState & {
     }
   },
 
-  updateItemFields: async (
-    checklistId: string,
-    itemId: string,
-    fields: Partial<Pick<ChecklistItem, 'scheduledFor' | 'dueDate' | 'impact' | 'effort' | 'notes'>>
-  ) => {
+  updateItemFields: async (checklistId: string, itemId: string, fields: ItemFields) => {
     set((state) => ({
       checklists: state.checklists.map((c) =>
         c.id === checklistId

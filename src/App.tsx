@@ -1,13 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useChecklistStore } from './store/checklistStore';
 import { useTextNoteStore } from './store/textNoteStore';
 import { Canvas } from './components/Canvas';
+import { CreateItemPanel } from './components/CreateItemPanel';
 import { ItemDetailPanel } from './components/ItemDetailPanel';
 import { PriorityView } from './components/PriorityView';
 import { ScheduleView } from './components/ScheduleView';
 import { Auth } from './components/Auth';
-import { useViewStore } from './store/uiStore';
+import { useCreateItemStore, useViewStore } from './store/uiStore';
 
 function AppContent() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -15,6 +16,10 @@ function AppContent() {
   const { loadTextNotes, isLoaded: textNotesLoaded } = useTextNoteStore();
   const view = useViewStore((s) => s.view);
   const setView = useViewStore((s) => s.setView);
+  const checklists = useChecklistStore((s) => s.checklists);
+  const isCreateOpen = useCreateItemStore((s) => s.isOpen);
+  const openCreateItem = useCreateItemStore((s) => s.openCreateItem);
+  const createFabRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -116,6 +121,27 @@ function AppContent() {
 
       {/* Sibling of Canvas, never inside it — .canvas-content is transformed. */}
       <ItemDetailPanel />
+
+      {/* Same rule as the panels: outside Canvas, or `fixed` would resolve
+          against the transformed .canvas-content.
+          z-30, not z-50: Canvas's context menu uses a `fixed inset-0 z-40`
+          dismiss catcher, and App renders after Canvas, so a z-50 FAB would
+          paint over an open menu while sitting outside its catcher. */}
+      <button
+        type="button"
+        ref={createFabRef}
+        onClick={openCreateItem}
+        disabled={checklists.length === 0}
+        title={checklists.length === 0 ? 'Create a checklist first' : 'New task'}
+        aria-label="New task"
+        className="fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center transition-colors hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-500"
+      >
+        <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+
+      {isCreateOpen && <CreateItemPanel returnFocusRef={createFabRef} />}
     </div>
   );
 }

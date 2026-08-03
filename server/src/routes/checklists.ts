@@ -121,7 +121,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
 router.post('/:id/items', async (req: AuthRequest, res: Response) => {
   const prisma: PrismaClient = req.app.get('prisma');
   const { id } = req.params;
-  const { text, afterItemId } = req.body;
+  const { text, afterItemId, scheduledFor, dueDate, impact, effort, notes } = req.body;
 
   try {
     // Verify ownership
@@ -132,6 +132,23 @@ router.post('/:id/items', async (req: AuthRequest, res: Response) => {
 
     if (!checklist) {
       return res.status(404).json({ error: 'Checklist not found' });
+    }
+
+    // Must stay above the afterItemId shift below: that updateMany is already
+    // committed when it runs, so a 400 after it would leave a permanent gap in
+    // `order` with nothing to roll it back.
+    if (impact !== undefined && impact !== null && !IMPACTS.includes(impact)) {
+      return res.status(400).json({ error: `impact must be one of ${IMPACTS.join(', ')} or null` });
+    }
+
+    if (effort !== undefined && effort !== null && !EFFORTS.includes(effort)) {
+      return res.status(400).json({ error: `effort must be one of ${EFFORTS.join(', ')} or null` });
+    }
+
+    for (const [key, value] of [['scheduledFor', scheduledFor], ['dueDate', dueDate]] as const) {
+      if (value !== undefined && value !== null && !DATE_RE.test(value)) {
+        return res.status(400).json({ error: `${key} must be a YYYY-MM-DD string or null` });
+      }
     }
 
     let order = checklist.items.length;
@@ -157,6 +174,11 @@ router.post('/:id/items', async (req: AuthRequest, res: Response) => {
         completed: false,
         order,
         checklistId: id,
+        ...(scheduledFor !== undefined && { scheduledFor }),
+        ...(dueDate !== undefined && { dueDate }),
+        ...(impact !== undefined && { impact }),
+        ...(effort !== undefined && { effort }),
+        ...(notes !== undefined && { notes }),
       },
     });
 

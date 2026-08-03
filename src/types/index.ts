@@ -61,6 +61,11 @@ export type ChecklistItem = {
   notes?: string | null;
 };
 
+// The field bag shared by updateItemFields and addItem.
+export type ItemFields = Partial<
+  Pick<ChecklistItem, 'scheduledFor' | 'dueDate' | 'impact' | 'effort' | 'notes'>
+>;
+
 export type Checklist = {
   id: string;
   title: string;
@@ -80,7 +85,7 @@ export type ChecklistState = {
   updateChecklistPosition: (checklistId: string, x: number, y: number) => void;
   updateChecklistColor: (checklistId: string, color: ChecklistColor) => void;
   deleteChecklist: (checklistId: string) => void;
-  addItem: (checklistId: string, text: string) => void;
+  addItem: (checklistId: string, text: string, fields?: ItemFields) => Promise<void>;
   insertItemAfter: (checklistId: string, afterItemId: string) => string;
   deleteItem: (checklistId: string, itemId: string) => void;
   updateItemText: (checklistId: string, itemId: string, text: string) => void;
@@ -93,11 +98,7 @@ export type ChecklistState = {
   uncheckAll: (checklistId: string) => void;
   selectAll: (checklistId: string) => void;
   deselectAll: (checklistId: string) => void;
-  updateItemFields: (
-    checklistId: string,
-    itemId: string,
-    fields: Partial<Pick<ChecklistItem, 'scheduledFor' | 'dueDate' | 'impact' | 'effort' | 'notes'>>
-  ) => void;
+  updateItemFields: (checklistId: string, itemId: string, fields: ItemFields) => void;
 };
 
 export type DisplaySettings = {

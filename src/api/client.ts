@@ -102,7 +102,18 @@ class ApiClient {
     return this.request<void>(`/checklists/${id}`, { method: 'DELETE' });
   }
 
-  async addItem(checklistId: string, data: { text?: string; afterItemId?: string }) {
+  async addItem(
+    checklistId: string,
+    data: {
+      text?: string;
+      afterItemId?: string;
+      scheduledFor?: string | null;
+      dueDate?: string | null;
+      impact?: string | null;
+      effort?: string | null;
+      notes?: string | null;
+    }
+  ) {
     return this.request<any>(`/checklists/${checklistId}/items`, {
       method: 'POST',
       body: JSON.stringify(data),

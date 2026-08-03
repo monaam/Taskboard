@@ -11,16 +11,11 @@ import {
 import { useChecklistStore } from '../store/checklistStore';
 import { useItemDetailStore } from '../store/uiStore';
 import { DATE_RE } from '../utils/dates';
+import { SlideOverPanel } from './SlideOverPanel';
+import { ChoiceRow, DateRow, NotesField } from './ItemFieldRows';
 
 /**
- * Must be mounted OUTSIDE <Canvas />: `.canvas-content` carries a transform,
- * which makes it the containing block for `position: fixed` descendants — a
- * sheet inside it would be positioned against the 4000x3000 canvas and scaled
- * by the zoom factor.
- *
- * Breakpoint is `md:` (768px) to match Canvas's `isMobile` media query. `sm:`
- * is 640px and would put the desktop drawer over the mobile list view in the
- * 641-768px band.
+ * Must be mounted OUTSIDE <Canvas />: see SlideOverPanel for why.
  */
 export const ItemDetailPanel = () => {
   const openItemId = useItemDetailStore((s) => s.openItemId);
@@ -37,57 +32,26 @@ export const ItemDetailPanel = () => {
     return checklist && item ? { checklistId: checklist.id, item } : null;
   }, [checklists, openItemId]);
 
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-
   // The open item can vanish under us: deleteItem, deleteAllCompleted,
   // deleteChecklist, or handleSave deleting a blank row.
   useEffect(() => {
     if (openItemId && !found) closeItemDetail();
   }, [openItemId, found, closeItemDetail]);
 
-  const foundItemId = found?.item.id;
-  useEffect(() => {
-    if (foundItemId) closeButtonRef.current?.focus();
-  }, [foundItemId]);
-
   if (!openItemId || !found) return null;
 
   return (
-    <>
-      {/* Modal on mobile, non-modal drawer on desktop so the canvas stays usable. */}
-      <div
-        className="fixed inset-0 bg-black/30 z-[60] md:hidden"
-        onClick={closeItemDetail}
+    <SlideOverPanel ariaLabel="Item details" onClose={closeItemDetail}>
+      {/* Key the CONTENT, not the shell: insertItemAfter/addItem swap the temp
+          id for the server id once the POST resolves, and remounting the shell
+          mid-edit would discard typed notes. */}
+      <ItemDetailContent
+        key={found.item.id}
+        item={found.item}
+        checklistId={found.checklistId}
+        onClose={closeItemDetail}
       />
-      <div
-        tabIndex={-1}
-        role="dialog"
-        // No aria-modal: it cannot vary by breakpoint without JS, and it would
-        // be a lie on the desktop drawer.
-        aria-label="Item details"
-        // Escape is handled here, not on window: React 19 attaches at the root
-        // container, which is below window in the bubble path, so a window
-        // listener could not preempt the text input's own Escape handler.
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            e.stopPropagation();
-            closeItemDetail();
-          }
-        }}
-        className="fixed inset-x-0 bottom-0 z-[70] max-h-[85dvh] overflow-y-auto overscroll-contain rounded-t-2xl bg-white shadow-2xl outline-none md:top-0 md:bottom-0 md:left-auto md:right-0 md:w-[380px] md:max-h-none md:rounded-none md:border-l md:border-gray-200"
-      >
-        {/* Key the CONTENT, not the shell: insertItemAfter/addItem swap the temp
-            id for the server id once the POST resolves, and remounting the shell
-            mid-edit would discard typed notes. */}
-        <ItemDetailContent
-          key={found.item.id}
-          item={found.item}
-          checklistId={found.checklistId}
-          onClose={closeItemDetail}
-          closeButtonRef={closeButtonRef}
-        />
-      </div>
-    </>
+    </SlideOverPanel>
   );
 };
 
@@ -97,16 +61,20 @@ interface ItemDetailContentProps {
   item: ChecklistItem;
   checklistId: string;
   onClose: () => void;
-  closeButtonRef: React.RefObject<HTMLButtonElement | null>;
 }
 
-const SEGMENT_BASE =
-  'flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors border';
-
-const ItemDetailContent = ({ item, checklistId, onClose, closeButtonRef }: ItemDetailContentProps) => {
+const ItemDetailContent = ({ item, checklistId, onClose }: ItemDetailContentProps) => {
   const updateItemFields = useChecklistStore((s) => s.updateItemFields);
 
   const [notes, setNotes] = useState(item.notes ?? '');
+
+  // Mount-only: this component is keyed by item id, so switching items
+  // remounts it and re-runs the focus, exactly as the old [foundItemId]
+  // dependency did.
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    closeButtonRef.current?.focus();
+  }, []);
 
   // updateItemFields merges optimistically and never rolls back, so anything
   // the server would reject has to be filtered out here.
@@ -185,125 +153,23 @@ const ItemDetailContent = ({ item, checklistId, onClose, closeButtonRef }: ItemD
         onCommit={(raw) => commitDate('dueDate', raw)}
       />
 
-      <div className="mb-4">
-        <div className="text-xs font-medium text-gray-500 mb-1.5">Impact</div>
-        <div role="radiogroup" aria-label="Impact" className="flex gap-1.5">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={!item.impact}
-            aria-label="No impact set"
-            onClick={() => commitImpact(null)}
-            className={`${SEGMENT_BASE} ${
-              !item.impact
-                ? 'bg-gray-200 text-gray-700 border-gray-300'
-                : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            —
-          </button>
-          {IMPACT_ORDER.map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={item.impact === value}
-              onClick={() => commitImpact(value)}
-              className={`${SEGMENT_BASE} ${
-                item.impact === value
-                  ? `${IMPACT_META[value].chip} border-transparent`
-                  : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              {IMPACT_META[value].label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <ChoiceRow
+        label="Impact"
+        options={IMPACT_ORDER}
+        meta={IMPACT_META}
+        value={item.impact ?? null}
+        onChange={commitImpact}
+      />
 
-      <div className="mb-4">
-        <div className="text-xs font-medium text-gray-500 mb-1.5">Effort</div>
-        <div role="radiogroup" aria-label="Effort" className="flex gap-1.5">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={!item.effort}
-            aria-label="No effort set"
-            onClick={() => commitEffort(null)}
-            className={`${SEGMENT_BASE} ${
-              !item.effort
-                ? 'bg-gray-200 text-gray-700 border-gray-300'
-                : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            —
-          </button>
-          {EFFORT_ORDER.map((value) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={item.effort === value}
-              onClick={() => commitEffort(value)}
-              className={`${SEGMENT_BASE} ${
-                item.effort === value
-                  ? `${EFFORT_META[value].chip} border-transparent`
-                  : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              {EFFORT_META[value].label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <ChoiceRow
+        label="Effort"
+        options={EFFORT_ORDER}
+        meta={EFFORT_META}
+        value={item.effort ?? null}
+        onChange={commitEffort}
+      />
 
-      <div>
-        <label htmlFor="item-detail-notes" className="block text-xs font-medium text-gray-500 mb-1.5">
-          Notes
-        </label>
-        <textarea
-          id="item-detail-notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          onBlur={commitNotes}
-          rows={5}
-          placeholder="Add notes..."
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-400 resize-y"
-        />
-      </div>
+      <NotesField value={notes} onChange={setNotes} onBlur={commitNotes} />
     </div>
   );
 };
-
-interface DateRowProps {
-  label: string;
-  value: string;
-  onCommit: (raw: string) => void;
-}
-
-const DateRow = ({ label, value, onCommit }: DateRowProps) => (
-  <div className="mb-4">
-    <div className="text-xs font-medium text-gray-500 mb-1.5">{label}</div>
-    <div className="flex items-center gap-2">
-      <input
-        type="date"
-        value={value}
-        min="1900-01-01"
-        max="2999-12-31"
-        onChange={(e) => onCommit(e.target.value)}
-        aria-label={label}
-        className="flex-1 min-w-0 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 outline-none focus:border-blue-400"
-      />
-      {/* Chrome renders a clear affordance inside the input; Safari and Firefox
-          do not, so without this a mis-set date is a dead end. */}
-      <button
-        type="button"
-        onClick={() => onCommit('')}
-        disabled={value === ''}
-        className="px-2 py-2 text-xs text-gray-500 hover:text-gray-800 disabled:opacity-30 disabled:hover:text-gray-500"
-      >
-        Clear
-      </button>
-    </div>
-  </div>
-);

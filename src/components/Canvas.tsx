@@ -343,8 +343,11 @@ export const Canvas = () => {
         <>
           <ChecklistListView />
 
-          {/* Simplified Mobile FAB for creating checklist */}
-          <div className="fixed bottom-6 right-6 z-50">
+          {/* Simplified Mobile FAB for creating checklist. Sits above App's
+              "New task" FAB rather than beside it: this branch is gated on a JS
+              predicate (matchMedia + ontouchstart) that Tailwind cannot mirror,
+              so the other FAB has no breakpoint at which to move itself. */}
+          <div className="fixed bottom-24 right-6 z-50">
             <button
               onClick={() => createChecklist('New Checklist')}
               className="w-14 h-14 rounded-full bg-blue-600 text-white shadow-lg flex items-center justify-center"
