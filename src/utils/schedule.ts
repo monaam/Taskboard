@@ -1,4 +1,4 @@
-import { Checklist, ChecklistItem } from '../types';
+import { Checklist, ChecklistItem, Effort, Impact } from '../types';
 import { addDaysISO, DATE_RE, formatDateShort, formatDayHeading } from './dates';
 import { isEligible } from './items';
 
@@ -175,4 +175,83 @@ export const buildScheduleBuckets = (
   }
 
   return { groups, sections, unscheduledCount, agendaCount };
+};
+
+/**
+ * Narrows the unscheduled backlog by impact/effort. The agenda is deliberately
+ * untouched: it answers "what is my day", and hiding half of it because of a
+ * filter set on the other column would make that answer a lie.
+ *
+ * Arrays rather than Sets — three possible values each, so `includes` wins on
+ * both allocation and readability, and a plain object stays trivial to compare.
+ */
+export type ScheduleFilter = {
+  impacts: Impact[];
+  efforts: Effort[];
+  /** Items missing an impact, an effort, or both. */
+  untriaged: boolean;
+};
+
+// Module-level so "no filter" is referentially stable: both helpers below can
+// then hand back their input untouched and the view re-renders nothing.
+export const EMPTY_SCHEDULE_FILTER: ScheduleFilter = { impacts: [], efforts: [], untriaged: false };
+
+export const isFilterActive = (f: ScheduleFilter): boolean =>
+  f.impacts.length > 0 || f.efforts.length > 0 || f.untriaged;
+
+/**
+ * OR within an axis, AND across them: {High, Medium} × {Quick} reads as "high
+ * or medium impact, and quick" — which is how you actually think about picking
+ * work up, rather than enumerating pairs.
+ *
+ * `untriaged` is a union on top, not another axis, because it selects items the
+ * axes structurally cannot match: an item with no impact fails every impact
+ * filter, so without this escape hatch the backlog — the one place untriaged
+ * items collect — would empty out the moment you touched a chip.
+ */
+export const matchesScheduleFilter = (item: ChecklistItem, f: ScheduleFilter): boolean => {
+  const anyAxis = f.impacts.length > 0 || f.efforts.length > 0;
+  if (!anyAxis && !f.untriaged) return true;
+
+  // Half-triaged counts as untriaged. An item with an impact but no effort is
+  // exactly as unplaceable as one with neither, and calling it "triaged" would
+  // strand it: no combination filter can reach it either.
+  if (f.untriaged && !(item.impact && item.effort)) return true;
+  if (!anyAxis) return false;
+
+  // An empty axis means "any", so a filter on one dimension alone doesn't
+  // silently require the other to be set.
+  const impactOk = f.impacts.length === 0 || (!!item.impact && f.impacts.includes(item.impact));
+  const effortOk = f.efforts.length === 0 || (!!item.effort && f.efforts.includes(item.effort));
+  return impactOk && effortOk;
+};
+
+/**
+ * Applies a filter to the backlog, dropping groups left with nothing so an
+ * empty checklist heading never survives as a stray label.
+ *
+ * Returns the count alongside, since the caller needs "3 of 12" and only this
+ * pass knows the 3.
+ */
+export const filterUnscheduledGroups = (
+  groups: UnscheduledGroup[],
+  filter: ScheduleFilter
+): { groups: UnscheduledGroup[]; count: number } => {
+  if (!isFilterActive(filter)) {
+    let count = 0;
+    for (const group of groups) count += group.items.length;
+    // Same array reference back, so CollapsibleGroupCard keeps its collapse
+    // state and nothing below re-renders on an unrelated store change.
+    return { groups, count };
+  }
+
+  const next: UnscheduledGroup[] = [];
+  let count = 0;
+  for (const group of groups) {
+    const items = group.items.filter((item) => matchesScheduleFilter(item, filter));
+    if (items.length === 0) continue;
+    next.push({ ...group, items });
+    count += items.length;
+  }
+  return { groups: next, count };
 };

@@ -1,9 +1,17 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useChecklistStore } from '../store/checklistStore';
 import { useViewStore } from '../store/uiStore';
 import { todayLocalISO } from '../utils/dates';
-import { buildScheduleBuckets, DaySection } from '../utils/schedule';
+import {
+  buildScheduleBuckets,
+  DaySection,
+  EMPTY_SCHEDULE_FILTER,
+  filterUnscheduledGroups,
+  isFilterActive,
+  ScheduleFilter,
+} from '../utils/schedule';
 import { CollapsibleGroupCard } from './CollapsibleGroupCard';
+import { ScheduleFilterBar } from './ScheduleFilterBar';
 import { ScheduleRow } from './ScheduleRow';
 
 /**
@@ -26,12 +34,25 @@ export const ScheduleView = () => {
   // change instead of staying frozen on yesterday.
   const today = todayLocalISO();
 
+  // Local, not in uiStore: it is a working-session scratch setting scoped to one
+  // column of one view, and persisting it would mean returning to a backlog that
+  // silently hides most of itself.
+  const [filter, setFilter] = useState<ScheduleFilter>(EMPTY_SCHEDULE_FILTER);
+
   const { groups, sections, unscheduledCount, agendaCount } = useMemo(
     () => buildScheduleBuckets(checklists, today),
     [checklists, today]
   );
 
-  // After the useMemo, never before it — rules of hooks.
+  // A second pass over the backlog alone. Kept out of buildScheduleBuckets so
+  // the agenda and its counts stay whole no matter what is selected here.
+  const { groups: visibleGroups, count: visibleCount } = useMemo(
+    () => filterUnscheduledGroups(groups, filter),
+    [groups, filter]
+  );
+  const filtering = isFilterActive(filter);
+
+  // After the hooks, never before them — rules of hooks.
   if (unscheduledCount === 0 && agendaCount === 0) {
     return (
       <div className="flex min-h-screen w-full flex-col items-center justify-center gap-3 bg-gray-100 px-6">
@@ -62,15 +83,34 @@ export const ScheduleView = () => {
                 the last row leaves. */}
             <div className="flex shrink-0 items-baseline gap-2">
               <h2 className="text-base font-semibold text-gray-700">Unscheduled</h2>
-              <span className="text-sm text-gray-400">{unscheduledCount}</span>
+              {/* "3 of 12" while filtering: the count is what tells you the list
+                  is short because you asked, not because the work is done. */}
+              <span className="text-sm text-gray-400">
+                {filtering ? `${visibleCount} of ${unscheduledCount}` : unscheduledCount}
+              </span>
             </div>
-            <div className="mt-3 space-y-4 xl:flex-1 xl:overflow-y-auto xl:pr-1">
-              {groups.length === 0 ? (
+
+            {/* Outside the scroller and shrink-0, so the controls stay put while
+                the list moves under them — and so they read as chrome attached
+                to the heading rather than as the first card in the list. Hidden
+                when there is nothing to filter. */}
+            {unscheduledCount > 0 && (
+              <div className="mt-2 shrink-0">
+                <ScheduleFilterBar filter={filter} onChange={setFilter} />
+              </div>
+            )}
+
+            <div className="mt-3 space-y-4 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
+              {visibleGroups.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-400">
-                  Nothing unscheduled — every item has a date.
+                  {/* Two different facts, and conflating them would be a lie in
+                      one direction or the other. */}
+                  {filtering
+                    ? 'No unscheduled item matches this filter.'
+                    : 'Nothing unscheduled — every item has a date.'}
                 </div>
               ) : (
-                groups.map((group) => (
+                visibleGroups.map((group) => (
                   <CollapsibleGroupCard
                     key={group.checklistId}
                     title={group.title}
