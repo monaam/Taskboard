@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -38,14 +38,14 @@ model Checklist {
 
 model ChecklistItem {
   id        String   @id @default(uuid())
-  text      String
+  text      String   @db.Text
   completed Boolean  @default(false)
 
   scheduledFor String?
   dueDate      String?
   impact       String?
   effort       String?
-  notes        String?
+  notes        String? @db.Text
 
   order     Int
   createdAt DateTime @default(now())
@@ -59,7 +59,7 @@ model ChecklistItem {
 
 model TextNote {
   id        String   @id @default(uuid())
-  text      String
+  text      String   @db.Text
   x         Float
   y         Float
   fontSize  Float    @default(24)
