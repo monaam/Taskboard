@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { Checklist, ChecklistState, ChecklistColor, ItemFields } from '../types';
 import { apiClient } from '../api/client';
+// One-way edge, and it has to stay that way: uiStore imports only zustand and
+// ../types, and must never import this file. Reaching across stores with
+// getState() is the existing house pattern (see uiStore's two panel stores).
+import { useUndoStore } from './uiStore';
 
 const generateId = () => crypto.randomUUID();
 
@@ -224,13 +228,17 @@ export const useChecklistStore = create<ChecklistState & {
     }
   },
 
-  toggleItemComplete: async (checklistId: string, itemId: string) => {
-    const state = get();
-    const checklist = state.checklists.find((c) => c.id === checklistId);
+  // Absolute, and silent. Undo calls this one so that undoing a completion
+  // cannot raise a second toast. Split in this direction only: if the toast
+  // lived here instead, every undo would announce itself.
+  setItemCompleted: async (checklistId: string, itemId: string, completed: boolean) => {
+    const checklist = get().checklists.find((c) => c.id === checklistId);
     const item = checklist?.items.find((i) => i.id === itemId);
-    if (!item) return;
+    // Missing = deleted while the toast was up. Already in the target state =
+    // nothing to do; the early return is what makes undo idempotent and drops
+    // a duplicate PATCH.
+    if (!item || item.completed === completed) return;
 
-    const completed = !item.completed;
     set((state) => ({
       checklists: state.checklists.map((c) =>
         c.id === checklistId
@@ -248,6 +256,33 @@ export const useChecklistStore = create<ChecklistState & {
     } catch (error) {
       console.error('Failed to toggle item:', error);
     }
+  },
+
+  // The checkbox path — the only one the three row components use.
+  //
+  // Bulk operations (selectAll, deselectAll, uncheckAll, deleteAllCompleted)
+  // deliberately do not route through here: they write `completed` through
+  // their own set(), so they raise no toasts. That is correct, not an
+  // oversight — a single-item undo payload cannot represent forty rows.
+  toggleItemComplete: async (checklistId: string, itemId: string) => {
+    const checklist = get().checklists.find((c) => c.id === checklistId);
+    const item = checklist?.items.find((i) => i.id === itemId);
+    if (!item) return;
+
+    const completed = !item.completed;
+    const written = get().setItemCompleted(checklistId, itemId, completed);
+
+    // Raised off the optimistic write rather than the round trip:
+    // setItemCompleted updates the store synchronously and only then PATCHes,
+    // and it swallows its own errors, so awaiting first would delay the toast —
+    // and with it the 6s window — by the network latency and buy nothing.
+    //
+    // Only on completion. Un-ticking is already its own undo, and offering to
+    // undo that is a loop with no exit.
+    if (completed) {
+      useUndoStore.getState().showUndo(itemId, item.text);
+    }
+    await written;
   },
 
   reorderItems: async (checklistId: string, startIndex: number, endIndex: number) => {

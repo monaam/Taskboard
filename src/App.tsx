@@ -8,6 +8,7 @@ import { ItemDetailPanel } from './components/ItemDetailPanel';
 import { PriorityView } from './components/PriorityView';
 import { ScheduleView } from './components/ScheduleView';
 import { Auth } from './components/Auth';
+import { UndoToast } from './components/UndoToast';
 import { useCreateItemStore, useViewStore } from './store/uiStore';
 
 function AppContent() {
@@ -142,6 +143,14 @@ function AppContent() {
       </button>
 
       {isCreateOpen && <CreateItemPanel returnFocusRef={createFabRef} />}
+
+      {/* Same rule as the FAB and the panels: outside Canvas, whose
+          .canvas-content is transformed and would become the containing block
+          for anything `fixed` inside it.
+          Unconditional, and AppContent deliberately does not subscribe to
+          useUndoStore — that would re-render the whole view tree twice per
+          toast. The component owns its own subscription. */}
+      <UndoToast />
     </div>
   );
 }

@@ -90,6 +90,9 @@ export type ChecklistState = {
   deleteItem: (checklistId: string, itemId: string) => void;
   updateItemText: (checklistId: string, itemId: string, text: string) => void;
   toggleItemComplete: (checklistId: string, itemId: string) => void;
+  // The silent primitive behind toggleItemComplete: sets an absolute state and
+  // raises no toast. Promise<void> because toggleItemComplete awaits it.
+  setItemCompleted: (checklistId: string, itemId: string, completed: boolean) => Promise<void>;
   reorderItems: (checklistId: string, startIndex: number, endIndex: number) => void;
   reorderChecklists: (startIndex: number, endIndex: number) => void;
   arrangeChecklists: (positions: { id: string; x: number; y: number }[]) => void;

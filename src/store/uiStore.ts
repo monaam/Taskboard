@@ -98,3 +98,32 @@ export const useViewStore = create<{ view: AppView; setView: (v: AppView) => voi
     set({ view });
   },
 }));
+
+export type UndoCompletion = {
+  // Monotonic, and the React key of the card: the item id alone would not
+  // re-arm the countdown when the same item is completed twice in a row.
+  id: number;
+  // Item id alone, never a {checklistId, itemId} pair — see the note on
+  // useItemDetailStore above, and the server's id-only PATCH. Owner is
+  // resolved at undo time.
+  itemId: string;
+  text: string;
+};
+
+let nextUndoId = 1;
+
+type UndoState = {
+  undo: UndoCompletion | null;
+  showUndo: (itemId: string, text: string) => void;
+  clearUndo: (id: number) => void;
+};
+
+// One slot, not a queue — a stack of these is a notification centre, which this
+// is not. A second completion replaces the first outright.
+export const useUndoStore = create<UndoState>()((set) => ({
+  undo: null,
+  showUndo: (itemId, text) => set({ undo: { id: nextUndoId++, itemId, text } }),
+  // Takes the id and no-ops unless it matches, so a timer left over from a
+  // dismissed toast can never clear the one that replaced it.
+  clearUndo: (id) => set((s) => (s.undo?.id === id ? { undo: null } : s)),
+}));
