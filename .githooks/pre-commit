@@ -1,0 +1,39 @@
+#!/bin/sh
+# Rebuild server/dist whenever backend source is committed.
+#
+# The Forge box cannot run tsc: it runs earlyoom (/etc/default/earlyoom), which
+# SIGTERMs the largest node process once available RAM drops below ~390MB, and
+# tsc needs ~250MB. So server/dist is committed and shipped in git instead.
+#
+# The danger that creates: committing a server/src change without rebuilding
+# deploys cleanly and the API silently keeps running the old code. The deploy
+# script can detect a *missing* dist, but never a *stale* one. This hook removes
+# that failure mode.
+#
+# Enable once per clone with:
+#   git config core.hooksPath .githooks
+
+set -e
+
+# Did this commit stage anything under server/src?
+if ! git diff --cached --name-only --diff-filter=ACMRD | grep -q '^server/src/'; then
+    exit 0
+fi
+
+echo "pre-commit: server/src changed -> rebuilding server/dist"
+
+if ! command -v npm >/dev/null 2>&1; then
+    echo "pre-commit: npm not found in PATH." >&2
+    echo "  A GUI git client may not load your shell profile. Commit from a" >&2
+    echo "  terminal, or rebuild manually: (cd server && npm run build)" >&2
+    exit 1
+fi
+
+# Remove first so sources deleted from server/src do not leave orphaned output
+# behind in dist. If the build fails the commit is aborted, so nothing ships;
+# re-running the commit after fixing the error regenerates dist.
+rm -rf server/dist
+(cd server && npm run build)
+
+git add -A server/dist
+echo "pre-commit: server/dist rebuilt and staged"
