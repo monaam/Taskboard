@@ -8,7 +8,11 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+# Leading slash: the frontend build only. Netlify builds it, so it stays out.
+# server/dist IS committed on purpose -- the Forge box cannot run tsc (earlyoom
+# kills it, see the deploy script), so the compiled backend ships in git.
+# Rebuild it with `npm run build` in server/ before committing backend changes.
+/dist
 dist-ssr
 *.local
 
