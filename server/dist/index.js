@@ -30,9 +30,10 @@ app.set('prisma', prisma);
 app.use('/api/auth', auth_1.default);
 app.use('/api/checklists', checklists_1.default);
 app.use('/api/textnotes', textNotes_1.default);
-// Health check
+// Health check. uptime is seconds since the process started, so a deploy that
+// failed to restart the daemon is visible rather than silent.
 app.get('/api/health', (_, res) => {
-    res.json({ status: 'ok' });
+    res.json({ status: 'ok', uptime: Math.round(process.uptime()) });
 });
 // Start server
 app.listen(PORT, () => {

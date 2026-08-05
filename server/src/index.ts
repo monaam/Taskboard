@@ -33,9 +33,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/checklists', checklistRoutes);
 app.use('/api/textnotes', textNoteRoutes);
 
-// Health check
+// Health check. uptime is seconds since the process started, so a deploy that
+// failed to restart the daemon is visible rather than silent.
 app.get('/api/health', (_, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', uptime: Math.round(process.uptime()) });
 });
 
 // Start server
