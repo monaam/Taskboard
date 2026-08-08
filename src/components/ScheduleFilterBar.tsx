@@ -1,19 +1,12 @@
 import { useId, useState } from 'react';
 import { Effort, EFFORT_META, EFFORT_ORDER, Impact, IMPACT_META, IMPACT_ORDER } from '../types';
+import { SEG, SEG_OFF } from '../utils/chips';
 import { EMPTY_SCHEDULE_FILTER, isFilterActive, ScheduleFilter } from '../utils/schedule';
 
 interface ScheduleFilterBarProps {
   filter: ScheduleFilter;
   onChange: (next: ScheduleFilter) => void;
 }
-
-// Same segments TriageRow and ScheduleRow use. Reusing the vocabulary is the
-// point: the chip you press to set an impact looks like the chip you press to
-// filter by it, so the second control needs no explaining once you know the
-// first.
-const SEG =
-  'shrink-0 rounded-md border px-2 py-1 text-[11px] font-medium leading-5 transition-colors';
-const SEG_OFF = 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50';
 
 // Fixed width so both axis labels line up and the chip rows start on the same
 // column; w-11 fits "Impact" and "Effort" at this size.

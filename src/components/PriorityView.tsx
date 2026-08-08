@@ -1,10 +1,21 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ChecklistItem } from '../types';
 import { useChecklistStore } from '../store/checklistStore';
 import { useViewStore } from '../store/uiStore';
+import { todayLocalISO } from '../utils/dates';
 import { isEligible } from '../utils/items';
-import { cellKey, PriorityEntry, TriageGroup } from '../utils/matrix';
+import {
+  cellKey,
+  EMPTY_PRIORITY_FILTER,
+  filterMatrixCells,
+  isPriorityFilterActive,
+  MatrixSource,
+  PriorityEntry,
+  PriorityFilter,
+  TriageGroup,
+} from '../utils/matrix';
 import { CollapsibleGroupCard } from './CollapsibleGroupCard';
+import { PriorityFilterBar } from './PriorityFilterBar';
 import { PriorityMatrix } from './PriorityMatrix';
 import { TriageRow } from './TriageRow';
 
@@ -23,9 +34,20 @@ export const PriorityView = () => {
   const checklists = useChecklistStore((s) => s.checklists);
   const setView = useViewStore((s) => s.setView);
 
-  const { groups, cells, untriagedCount, triagedCount, isEmpty } = useMemo(() => {
+  // Computed in the body and passed as a dep, not captured inside the memo: a
+  // tab left open across midnight re-derives on the next store change instead of
+  // staying frozen on yesterday's idea of overdue.
+  const today = todayLocalISO();
+
+  // Local, not in uiStore: it is a working-session scratch setting scoped to one
+  // column of one view, and persisting it would mean returning to a matrix that
+  // silently hides most of itself.
+  const [filter, setFilter] = useState<PriorityFilter>(EMPTY_PRIORITY_FILTER);
+
+  const { groups, cells, sources, untriagedCount, triagedCount, isEmpty } = useMemo(() => {
     const nextGroups: TriageGroup[] = [];
     const nextCells = new Map<string, PriorityEntry[]>();
+    const nextSources: MatrixSource[] = [];
     let untriaged = 0;
     let triaged = 0;
     let anyEligible = false;
@@ -34,6 +56,7 @@ export const PriorityView = () => {
     // preserved verbatim in both sections.
     for (const checklist of checklists) {
       const pending: ChecklistItem[] = [];
+      let contributed = false;
       for (const item of checklist.items) {
         if (!isEligible(item)) continue;
         anyEligible = true;
@@ -50,10 +73,16 @@ export const PriorityView = () => {
           if (bucket) bucket.push(entry);
           else nextCells.set(key, [entry]);
           triaged += 1;
+          contributed = true;
         } else {
           pending.push(item);
           untriaged += 1;
         }
+      }
+      // Built here, before any filtering, so pressing a list chip never makes
+      // the other list chips disappear out from under the cursor.
+      if (contributed) {
+        nextSources.push({ checklistId: checklist.id, title: checklist.title });
       }
       // Emit a group only when it has something, so a fully-triaged checklist
       // shows no heading at all.
@@ -65,13 +94,22 @@ export const PriorityView = () => {
     return {
       groups: nextGroups,
       cells: nextCells,
+      sources: nextSources,
       untriagedCount: untriaged,
       triagedCount: triaged,
       isEmpty: !anyEligible,
     };
   }, [checklists]);
 
-  // After the useMemo, never before it — rules of hooks.
+  // A second pass over the matrix alone. Kept out of the memo above so the
+  // triage column and its count stay whole no matter what is selected here.
+  const { cells: visibleCells, count: visibleCount } = useMemo(
+    () => filterMatrixCells(cells, filter, today),
+    [cells, filter, today]
+  );
+  const filtering = isPriorityFilterActive(filter);
+
+  // After the hooks, never before them — rules of hooks.
   if (isEmpty) {
     return (
       <div className="flex min-h-screen w-full flex-col items-center justify-center gap-3 bg-gray-100 px-6">
@@ -121,8 +159,23 @@ export const PriorityView = () => {
           <section className="flex flex-col xl:col-span-2 xl:min-h-0">
             <div className="flex shrink-0 items-baseline gap-2">
               <h2 className="text-base font-semibold text-gray-700">Prioritized</h2>
-              <span className="text-sm text-gray-400">{triagedCount}</span>
+              {/* "3 of 37" while filtering: the count is what tells you the
+                  matrix is sparse because you asked, not because the work is
+                  done. */}
+              <span className="text-sm text-gray-400">
+                {filtering ? `${visibleCount} of ${triagedCount}` : triagedCount}
+              </span>
             </div>
+
+            {/* Outside the scroller and shrink-0, so the controls stay put while
+                the grid moves under them. Hidden when there is nothing to
+                filter. */}
+            {triagedCount > 0 && (
+              <div className="mt-2 shrink-0">
+                <PriorityFilterBar filter={filter} onChange={setFilter} sources={sources} />
+              </div>
+            )}
+
             {/* min-h-0 gives this a definite height for the matrix's h-full to
                 resolve against. The overflow here is only a fallback for a
                 viewport too short for the grid's row minimums — normally the
@@ -130,11 +183,20 @@ export const PriorityView = () => {
             <div className="mt-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
               {triagedCount === 0 ? (
                 // One placeholder rather than a wall of nine empty cells.
+                //
+                // Note this tests the UNFILTERED count. A filter that matches
+                // nothing keeps the grid mounted and lets all nine cells read
+                // "—": the heading says "0 of 37" and the lit chips sit directly
+                // above it, so the cause is already on screen, and swapping the
+                // grid for a message would make the whole matrix pop in and out
+                // as you toggle a chip. The schedule view does substitute a
+                // message, but its backlog is a flat list with no structure
+                // worth holding still.
                 <div className="rounded-lg border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-400">
                   Nothing prioritized yet — set an impact and an effort to place an item here.
                 </div>
               ) : (
-                <PriorityMatrix cells={cells} />
+                <PriorityMatrix cells={visibleCells} />
               )}
             </div>
           </section>
