@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import { authMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -74,21 +75,18 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
-// Get current user
-router.get('/me', async (req: Request, res: Response) => {
+// Get current user.
+//
+// Goes through authMiddleware rather than verifying the JWT itself, which is
+// what it used to do: that duplicated the session logic and, once API tokens
+// existed, silently rejected them. This is the obvious endpoint for an agent to
+// check its credential with, so it has to accept both.
+router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
   const prisma: PrismaClient = req.app.get('prisma');
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
-
-  const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
+      where: { id: req.userId },
       select: { id: true, username: true },
     });
 
@@ -96,9 +94,12 @@ router.get('/me', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    res.json({ user });
-  } catch {
-    return res.status(401).json({ error: 'Invalid token' });
+    // Echoing how the caller authenticated turns this into a useful probe: an
+    // agent can tell a working token from a stale browser session.
+    res.json({ user, authKind: req.authKind });
+  } catch (error) {
+    console.error('Me error:', error);
+    res.status(500).json({ error: 'Failed to load user' });
   }
 });
 

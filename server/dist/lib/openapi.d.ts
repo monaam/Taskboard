@@ -122,6 +122,7 @@ export declare const buildOpenApiDocument: (baseUrl: string) => {
             get: {
                 tags: string[];
                 summary: string;
+                description: string;
                 responses: {
                     200: {
                         description: string;

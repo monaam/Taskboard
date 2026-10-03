@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const auth_1 = require("../middleware/auth");
 const router = (0, express_1.Router)();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 // Register
@@ -65,27 +66,29 @@ router.post('/login', async (req, res) => {
         res.status(500).json({ error: 'Failed to login' });
     }
 });
-// Get current user
-router.get('/me', async (req, res) => {
+// Get current user.
+//
+// Goes through authMiddleware rather than verifying the JWT itself, which is
+// what it used to do: that duplicated the session logic and, once API tokens
+// existed, silently rejected them. This is the obvious endpoint for an agent to
+// check its credential with, so it has to accept both.
+router.get('/me', auth_1.authMiddleware, async (req, res) => {
     const prisma = req.app.get('prisma');
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'No token provided' });
-    }
-    const token = authHeader.split(' ')[1];
     try {
-        const decoded = jsonwebtoken_1.default.verify(token, JWT_SECRET);
         const user = await prisma.user.findUnique({
-            where: { id: decoded.userId },
+            where: { id: req.userId },
             select: { id: true, username: true },
         });
         if (!user) {
             return res.status(401).json({ error: 'User not found' });
         }
-        res.json({ user });
+        // Echoing how the caller authenticated turns this into a useful probe: an
+        // agent can tell a working token from a stale browser session.
+        res.json({ user, authKind: req.authKind });
     }
-    catch {
-        return res.status(401).json({ error: 'Invalid token' });
+    catch (error) {
+        console.error('Me error:', error);
+        res.status(500).json({ error: 'Failed to load user' });
     }
 });
 exports.default = router;
