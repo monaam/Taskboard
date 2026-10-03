@@ -8,11 +8,19 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-# Leading slash: the frontend build only. Netlify builds it, so it stays out.
-# server/dist IS committed on purpose -- the Forge box cannot run tsc (earlyoom
-# kills it, see the deploy script), so the compiled backend ships in git.
-# Rebuild it with `npm run build` in server/ before committing backend changes.
-/dist
+# Both builds are committed on purpose -- the Forge box cannot run tsc or vite
+# build (earlyoom SIGTERMs the largest node process below ~390MB available, see
+# the deploy script), so compiled output ships in git instead.
+#
+# server/dist: pulled by the deploy script, which then restarts the daemon.
+# /dist: nginx serves it as the site root, and the deploy script only builds the
+# backend -- so `git pull` is the ONLY thing that updates the frontend in
+# production. It used to be ignored here, which left a two-month-old bundle
+# serving against a migrated API: the frontend sent `completed` while the API
+# had moved to `status`, so ticking an item silently did nothing.
+#
+# Before pushing: `npm run build` (frontend, reads .env.production) and
+# `npm run build` in server/ (backend). The pre-commit hook does the latter.
 dist-ssr
 *.local
 
@@ -21,6 +29,10 @@ dist-ssr
 .env.*
 # A committed template is the point of having one; it must hold no real values.
 !.env.example
+# Not a secret: the production API URL, which Vite bakes into the bundle at
+# build time. Without it `npm run build` silently emits a dist pointing at
+# localhost:3001.
+!.env.production
 
 # Editor directories and files
 .vscode/*
