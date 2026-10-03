@@ -9,6 +9,11 @@
  * Hand-maintained, so it can drift. There is a test that walks the Express
  * router and fails if a route exists with no entry here.
  */
+/**
+ * Fills in what every operation needs but nothing should have to repeat: an
+ * operationId, and a 401 on anything that takes a credential. Done here rather
+ * than at each call site so the two cannot be forgotten one route at a time.
+ */
 export declare const buildOpenApiDocument: (baseUrl: string) => {
     openapi: string;
     info: {
@@ -702,6 +707,48 @@ export declare const buildOpenApiDocument: (baseUrl: string) => {
         };
     };
     components: {
+        responses: {
+            BadRequest: {
+                description: string;
+                content: {
+                    'application/json': {
+                        schema: {
+                            $ref: string;
+                        };
+                    };
+                };
+            };
+            Unauthorized: {
+                description: string;
+                content: {
+                    'application/json': {
+                        schema: {
+                            $ref: string;
+                        };
+                    };
+                };
+            };
+            Forbidden: {
+                description: string;
+                content: {
+                    'application/json': {
+                        schema: {
+                            $ref: string;
+                        };
+                    };
+                };
+            };
+            NotFound: {
+                description: string;
+                content: {
+                    'application/json': {
+                        schema: {
+                            $ref: string;
+                        };
+                    };
+                };
+            };
+        };
         securitySchemes: {
             bearerAuth: {
                 type: string;
@@ -743,18 +790,11 @@ export declare const buildOpenApiDocument: (baseUrl: string) => {
                     };
                 };
             };
-            ErrorResponse: {
-                description: string;
-                content: {
-                    'application/json': {
-                        schema: {
-                            type: string;
-                            properties: {
-                                error: {
-                                    type: string;
-                                };
-                            };
-                        };
+            ErrorBody: {
+                type: string;
+                properties: {
+                    error: {
+                        type: string;
                     };
                 };
             };
@@ -844,6 +884,10 @@ export declare const buildOpenApiDocument: (baseUrl: string) => {
                     id: {
                         type: string;
                     };
+                    userId: {
+                        type: string;
+                        description: string;
+                    };
                     title: {
                         type: string;
                     };
@@ -880,6 +924,10 @@ export declare const buildOpenApiDocument: (baseUrl: string) => {
                 properties: {
                     id: {
                         type: string;
+                    };
+                    userId: {
+                        type: string;
+                        description: string;
                     };
                     text: {
                         type: string;

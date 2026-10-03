@@ -21,10 +21,21 @@ const ok = (schema, description = 'Success') => ({
     content: { 'application/json': { schema } },
 });
 const ref = (name) => ({ $ref: `#/components/schemas/${name}` });
+/**
+ * Error responses live under components.responses, not components.schemas. An
+ * object with `description` and `content` is a Response, and referencing one
+ * from a schemas path makes the document fail a strict OpenAPI 3.0 parse --
+ * which is exactly what an agent generating a client would use.
+ */
+const errRef = (name) => ({ $ref: `#/components/responses/${name}` });
 const arrayOf = (name) => ({ type: 'array', items: ref(name) });
 const jsonBody = (schema, required = true) => ({
     required,
     content: { 'application/json': { schema } },
+});
+const errorResponse = (description) => ({
+    description,
+    content: { 'application/json': { schema: ref('ErrorBody') } },
 });
 const pathId = (name = 'id', description = 'Resource id') => ({
     name,
@@ -33,7 +44,7 @@ const pathId = (name = 'id', description = 'Resource id') => ({
     description,
     schema: { type: 'string' },
 });
-const buildOpenApiDocument = (baseUrl) => ({
+const document = (baseUrl) => ({
     openapi: '3.0.3',
     info: {
         title: 'Taskboard API',
@@ -107,7 +118,7 @@ const buildOpenApiDocument = (baseUrl) => ({
                 summary: 'Create an account',
                 security: [],
                 requestBody: jsonBody(ref('Credentials')),
-                responses: { 201: ok(ref('AuthResult')), 400: ref('ErrorResponse') },
+                responses: { 201: ok(ref('AuthResult')), 400: errRef('BadRequest') },
             },
         },
         '/api/auth/login': {
@@ -116,7 +127,7 @@ const buildOpenApiDocument = (baseUrl) => ({
                 summary: 'Exchange a password for a 7-day session token',
                 security: [],
                 requestBody: jsonBody(ref('Credentials')),
-                responses: { 200: ok(ref('AuthResult')), 401: ref('ErrorResponse') },
+                responses: { 200: ok(ref('AuthResult')), 401: errRef('Unauthorized') },
             },
         },
         '/api/auth/me': {
@@ -136,7 +147,7 @@ const buildOpenApiDocument = (baseUrl) => ({
                             },
                         },
                     }),
-                    401: ref('ErrorResponse'),
+                    401: errRef('Unauthorized'),
                 },
             },
         },
@@ -177,13 +188,13 @@ const buildOpenApiDocument = (baseUrl) => ({
                         color: ref('ChecklistColor'),
                     },
                 }),
-                responses: { 200: ok(ref('Checklist')), 404: ref('ErrorResponse') },
+                responses: { 200: ok(ref('Checklist')), 404: errRef('NotFound') },
             },
             delete: {
                 tags: ['Checklists'],
                 summary: 'Delete a checklist and everything in it',
                 parameters: [pathId('id', 'Checklist id')],
-                responses: { 204: { description: 'Deleted' }, 404: ref('ErrorResponse') },
+                responses: { 204: { description: 'Deleted' }, 404: errRef('NotFound') },
             },
         },
         '/api/checklists/{id}/items': {
@@ -207,7 +218,7 @@ const buildOpenApiDocument = (baseUrl) => ({
                         notes: { type: 'string', nullable: true },
                     },
                 }),
-                responses: { 201: ok(ref('ChecklistItem')), 400: ref('ErrorResponse') },
+                responses: { 201: ok(ref('ChecklistItem')), 400: errRef('BadRequest') },
             },
         },
         '/api/checklists/{checklistId}/items/{itemId}': {
@@ -228,13 +239,13 @@ const buildOpenApiDocument = (baseUrl) => ({
                         notes: { type: 'string', nullable: true },
                     },
                 }),
-                responses: { 200: ok(ref('ChecklistItem')), 400: ref('ErrorResponse'), 404: ref('ErrorResponse') },
+                responses: { 200: ok(ref('ChecklistItem')), 400: errRef('BadRequest'), 404: errRef('NotFound') },
             },
             delete: {
                 tags: ['Items'],
                 summary: 'Delete an item',
                 parameters: [pathId('checklistId', 'Checklist id'), pathId('itemId', 'Item id')],
-                responses: { 204: { description: 'Deleted' }, 404: ref('ErrorResponse') },
+                responses: { 204: { description: 'Deleted' }, 404: errRef('NotFound') },
             },
         },
         '/api/checklists/{id}/reorder': {
@@ -253,7 +264,7 @@ const buildOpenApiDocument = (baseUrl) => ({
                         },
                     },
                 }),
-                responses: { 200: ok(ref('Success')), 404: ref('ErrorResponse') },
+                responses: { 200: ok(ref('Success')), 404: errRef('NotFound') },
             },
         },
         '/api/checklists/move-item': {
@@ -270,7 +281,7 @@ const buildOpenApiDocument = (baseUrl) => ({
                         targetIndex: { type: 'integer', description: 'Position in the target. Appends if omitted.' },
                     },
                 }),
-                responses: { 200: ok(ref('Success')), 404: ref('ErrorResponse') },
+                responses: { 200: ok(ref('Success')), 404: errRef('NotFound') },
             },
         },
         '/api/checklists/reorder-checklists': {
@@ -316,7 +327,7 @@ const buildOpenApiDocument = (baseUrl) => ({
                 summary: 'Mark every item in a checklist done',
                 description: 'In-progress items included.',
                 parameters: [pathId('id', 'Checklist id')],
-                responses: { 200: ok(ref('Success')), 404: ref('ErrorResponse') },
+                responses: { 200: ok(ref('Success')), 404: errRef('NotFound') },
             },
         },
         '/api/checklists/{id}/deselect-all': {
@@ -325,7 +336,7 @@ const buildOpenApiDocument = (baseUrl) => ({
                 summary: 'Reopen every done item',
                 description: 'Only items with status done are reset to todo; in-progress items are left alone.',
                 parameters: [pathId('id', 'Checklist id')],
-                responses: { 200: ok(ref('Success')), 404: ref('ErrorResponse') },
+                responses: { 200: ok(ref('Success')), 404: errRef('NotFound') },
             },
         },
         '/api/checklists/{id}/completed': {
@@ -334,7 +345,7 @@ const buildOpenApiDocument = (baseUrl) => ({
                 summary: 'Delete every done item in a checklist',
                 description: 'Only status done. In-progress and todo items are never deleted.',
                 parameters: [pathId('id', 'Checklist id')],
-                responses: { 200: ok(ref('Success')), 404: ref('ErrorResponse') },
+                responses: { 200: ok(ref('Success')), 404: errRef('NotFound') },
             },
         },
         '/api/textnotes': {
@@ -374,13 +385,13 @@ const buildOpenApiDocument = (baseUrl) => ({
                         color: ref('ChecklistColor'),
                     },
                 }),
-                responses: { 200: ok(ref('TextNote')), 404: ref('ErrorResponse') },
+                responses: { 200: ok(ref('TextNote')), 404: errRef('NotFound') },
             },
             delete: {
                 tags: ['Notes'],
                 summary: 'Delete a text note',
                 parameters: [pathId('id', 'Note id')],
-                responses: { 204: { description: 'Deleted' }, 404: ref('ErrorResponse') },
+                responses: { 204: { description: 'Deleted' }, 404: errRef('NotFound') },
             },
         },
         '/api/tokens': {
@@ -388,7 +399,7 @@ const buildOpenApiDocument = (baseUrl) => ({
                 tags: ['Tokens'],
                 summary: 'List your API tokens',
                 description: 'Session login only. The token values are not returned -- only their prefixes.',
-                responses: { 200: ok(arrayOf('ApiToken')), 403: ref('ErrorResponse') },
+                responses: { 200: ok(arrayOf('ApiToken')), 403: errRef('Forbidden') },
             },
             post: {
                 tags: ['Tokens'],
@@ -402,14 +413,17 @@ const buildOpenApiDocument = (baseUrl) => ({
                         scope: { type: 'string', enum: ['read', 'write'] },
                         expiresInDays: {
                             description: 'Days until expiry. Omit, or send null, for a token that never expires.',
-                            oneOf: [{ type: 'integer', minimum: 1, maximum: 3650 }, { type: 'null' }],
+                            type: 'integer',
+                            nullable: true,
+                            minimum: 1,
+                            maximum: 3650,
                         },
                     },
                 }),
                 responses: {
                     201: ok(ref('ApiTokenCreated'), 'Created. Copy the token now.'),
-                    400: ref('ErrorResponse'),
-                    403: ref('ErrorResponse'),
+                    400: errRef('BadRequest'),
+                    403: errRef('Forbidden'),
                 },
             },
         },
@@ -421,13 +435,19 @@ const buildOpenApiDocument = (baseUrl) => ({
                 parameters: [pathId('id', 'Token id')],
                 responses: {
                     204: { description: 'Revoked' },
-                    403: ref('ErrorResponse'),
-                    404: ref('ErrorResponse'),
+                    403: errRef('Forbidden'),
+                    404: errRef('NotFound'),
                 },
             },
         },
     },
     components: {
+        responses: {
+            BadRequest: errorResponse('The request body failed validation.'),
+            Unauthorized: errorResponse('Missing, malformed, expired or revoked credential.'),
+            Forbidden: errorResponse('Authenticated, but not allowed: a read-only token attempting a write, or any token touching /api/tokens.'),
+            NotFound: errorResponse('No such resource for this account. Returned instead of 403 for something owned by someone else, so an id cannot be probed for existence.'),
+        },
         securitySchemes: {
             bearerAuth: {
                 type: 'http',
@@ -451,13 +471,9 @@ const buildOpenApiDocument = (baseUrl) => ({
                 enum: ['default', 'red', 'orange', 'yellow', 'green', 'teal', 'blue', 'purple', 'pink', 'brown', 'gray'],
             },
             Success: { type: 'object', properties: { success: { type: 'boolean' } } },
-            ErrorResponse: {
-                description: 'Error',
-                content: {
-                    'application/json': {
-                        schema: { type: 'object', properties: { error: { type: 'string' } } },
-                    },
-                },
+            ErrorBody: {
+                type: 'object',
+                properties: { error: { type: 'string' } },
             },
             User: {
                 type: 'object',
@@ -499,6 +515,10 @@ const buildOpenApiDocument = (baseUrl) => ({
                 type: 'object',
                 properties: {
                     id: { type: 'string' },
+                    userId: {
+                        type: 'string',
+                        description: 'The owner. Always the authenticated account — every route is scoped to it — so it is of no use for addressing anything, but the server does return it.',
+                    },
                     title: { type: 'string' },
                     x: { type: 'number' },
                     y: { type: 'number' },
@@ -513,6 +533,10 @@ const buildOpenApiDocument = (baseUrl) => ({
                 type: 'object',
                 properties: {
                     id: { type: 'string' },
+                    userId: {
+                        type: 'string',
+                        description: 'The owner. Always the authenticated account — every route is scoped to it — so it is of no use for addressing anything, but the server does return it.',
+                    },
                     text: { type: 'string' },
                     x: { type: 'number' },
                     y: { type: 'number' },
@@ -556,5 +580,41 @@ const buildOpenApiDocument = (baseUrl) => ({
         },
     },
 });
+const capitalise = (word) => word.charAt(0).toUpperCase() + word.slice(1);
+/**
+ * `GET /api/checklists/{id}/items` -> `getChecklistsByIdItems`.
+ *
+ * Derived rather than hand-written so a route added later cannot arrive without
+ * one. Code generators turn these into client method names, which is the whole
+ * reason an agent-facing document should carry them.
+ */
+const operationIdFor = (method, path) => method +
+    path
+        .replace(/^\/api\//, '/')
+        .split('/')
+        .filter(Boolean)
+        .map((segment) => segment.startsWith('{')
+        ? 'By' + capitalise(segment.slice(1, -1))
+        : capitalise(segment.replace(/-([a-z])/g, (_, c) => c.toUpperCase())))
+        .join('');
+/**
+ * Fills in what every operation needs but nothing should have to repeat: an
+ * operationId, and a 401 on anything that takes a credential. Done here rather
+ * than at each call site so the two cannot be forgotten one route at a time.
+ */
+const buildOpenApiDocument = (baseUrl) => {
+    const doc = document(baseUrl);
+    for (const [path, operations] of Object.entries(doc.paths)) {
+        for (const [method, operation] of Object.entries(operations)) {
+            operation.operationId ??= operationIdFor(method, path);
+            // `security: []` marks the handful of endpoints that take no credential.
+            const isPublic = Array.isArray(operation.security) && operation.security.length === 0;
+            if (!isPublic) {
+                operation.responses['401'] ??= { $ref: '#/components/responses/Unauthorized' };
+            }
+        }
+    }
+    return doc;
+};
 exports.buildOpenApiDocument = buildOpenApiDocument;
 //# sourceMappingURL=openapi.js.map
