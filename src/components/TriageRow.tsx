@@ -8,6 +8,7 @@ import {
   IMPACT_ORDER,
 } from '../types';
 import { useChecklistStore } from '../store/checklistStore';
+import { StatusToggle } from './StatusToggle';
 import { useItemDetailStore } from '../store/uiStore';
 
 /**
@@ -37,7 +38,7 @@ interface TriageRowProps {
 
 export const TriageRow = ({ item, checklistId }: TriageRowProps) => {
   const updateItemFields = useChecklistStore((s) => s.updateItemFields);
-  const toggleItemComplete = useChecklistStore((s) => s.toggleItemComplete);
+  const chooseItemStatus = useChecklistStore((s) => s.chooseItemStatus);
 
   // Clicking the active value clears it — that is why these are aria-pressed
   // toggles in a role="group", not radios. A radio you can un-check is a lie to
@@ -51,100 +52,99 @@ export const TriageRow = ({ item, checklistId }: TriageRowProps) => {
   return (
     <div className="px-4 py-3">
       <div className="flex items-start gap-3">
-        {/* Checking it removes the row: isEligible drops completed items from
-            both views, which is the contract — these are "what to do next"
-            surfaces, and the board is where done work lives. checked is bound to
-            the real field rather than hardcoded false even though a completed
-            item never renders here, so the control can't lie if that ever
-            changes. */}
-        <input
-          type="checkbox"
-          checked={item.completed}
-          onChange={() => toggleItemComplete(checklistId, item.id)}
-          aria-label="Mark complete"
-          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300 text-blue-600 focus:ring-0"
+        {/* Clicking through to Done removes the row: isEligible drops done
+            items from both views, which is the contract — these are "what to do
+            next" surfaces, and the board is where finished work lives. The
+            middle state keeps the row, because in-progress work is still work
+            to do. */}
+        <StatusToggle
+          status={item.status}
+          onChange={(next) => chooseItemStatus(checklistId, item.id, next)}
         />
 
-        {/* No truncation: you have to be able to read an item to triage it. */}
-        <p className="min-w-0 flex-1 break-words text-sm text-gray-800">{item.text}</p>
-        <button
-          type="button"
-          aria-label="Item details"
-          // Imperative so a row never subscribes to panel state — every row
-          // would re-render on each open/close otherwise.
-          onClick={() => useItemDetailStore.getState().openItemDetail(item.id)}
-          className="-mt-1 -mr-1 shrink-0 p-1 text-gray-400 transition-colors hover:text-blue-500"
-        >
-          {/* Same sliders glyph the board rows use for this action. */}
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
-            />
-          </svg>
-        </button>
-      </div>
+        {/* Content column. Nesting the axes row in here, as a sibling of the
+            text line, is what aligns them with the text — previously that was a
+            pl-7 hardcoded from the checkbox's 16px width, which silently broke
+            the moment the control became an 86px toggle. Now it cannot. */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start gap-3">
+            {/* No truncation: you have to be able to read an item to triage it. */}
+            <p className="min-w-0 flex-1 break-words text-sm text-gray-800">{item.text}</p>
+            <button
+              type="button"
+              aria-label="Item details"
+              // Imperative so a row never subscribes to panel state — every
+              // row would re-render on each open/close otherwise.
+              onClick={() => useItemDetailStore.getState().openItemDetail(item.id)}
+              className="-mt-1 -mr-1 shrink-0 p-1 text-gray-400 transition-colors hover:text-blue-500"
+            >
+              {/* Same sliders glyph the board rows use for this action. */}
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"
+                />
+              </svg>
+            </button>
+          </div>
 
-      {/* Both axes on one line. The "Impact" / "Effort" captions are dropped to
-          buy the width: they cost ~100px of a ~356px card interior, which is
-          the whole reason the two clusters could not share a line. The grouping
-          is carried by proximity instead — gap-1 within an axis against gap-5
-          between them — and the two vocabularies are disjoint, so no segment is
-          ambiguous about which axis it belongs to. aria-label still names them
-          for screen readers, which never saw the captions as labels anyway.
+          {/* Both axes on one line. The "Impact" / "Effort" captions are
+              dropped to buy the width: they cost ~100px of a ~356px card
+              interior, which is the whole reason the two clusters could not
+              share a line. The grouping is carried by proximity instead —
+              gap-1 within an axis against gap-5 between them — and the two
+              vocabularies are disjoint, so no segment is ambiguous about which
+              axis it belongs to. aria-label still names them for screen
+              readers, which never saw the captions as labels anyway.
 
-          flex-wrap is a safety valve, not the intent: it only engages if the
-          row genuinely cannot fit, and dropping to two lines beats being
-          clipped by the card's overflow-hidden edge.
+              flex-wrap is a safety valve, not the intent: it only engages if
+              the row genuinely cannot fit, and dropping to two lines beats
+              being clipped by the card's overflow-hidden edge. The 86px toggle
+              now sits outside this column, so the axes get the full remaining
+              width rather than the old pl-7 indent eating into it. */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+            <div role="group" aria-label="Impact" className="flex items-center gap-1">
+              {IMPACT_ORDER.map((value) => {
+                const active = item.impact === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={active}
+                    title={active ? 'Click again to clear' : undefined}
+                    onClick={() => setImpact(value)}
+                    className={`${SEG} ${
+                      active ? `${IMPACT_META[value].chip} border-transparent` : SEG_OFF
+                    }`}
+                  >
+                    {IMPACT_META[value].label}
+                  </button>
+                );
+              })}
+            </div>
 
-          pl-7 = the checkbox (h-4) plus the gap-3 above it, so the segments stay
-          aligned with the item text the way they were before there was a
-          checkbox. It spends 28px of the budget described above, which is most
-          of the slack at exactly 1280px — expect the wrap valve to engage in the
-          1280–1350px band and not above it. Alignment is worth it: the
-          alternative is segments starting under the checkbox while the text they
-          describe starts elsewhere. */}
-      <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2 pl-7">
-        <div role="group" aria-label="Impact" className="flex items-center gap-1">
-          {IMPACT_ORDER.map((value) => {
-            const active = item.impact === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={active}
-                title={active ? 'Click again to clear' : undefined}
-                onClick={() => setImpact(value)}
-                className={`${SEG} ${
-                  active ? `${IMPACT_META[value].chip} border-transparent` : SEG_OFF
-                }`}
-              >
-                {IMPACT_META[value].label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div role="group" aria-label="Effort" className="flex items-center gap-1">
-          {EFFORT_ORDER.map((value) => {
-            const active = item.effort === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={active}
-                title={active ? 'Click again to clear' : undefined}
-                onClick={() => setEffort(value)}
-                className={`${SEG} ${
-                  active ? `${EFFORT_META[value].chip} border-transparent` : SEG_OFF
-                }`}
-              >
-                {EFFORT_META[value].label}
-              </button>
-            );
-          })}
+            <div role="group" aria-label="Effort" className="flex items-center gap-1">
+              {EFFORT_ORDER.map((value) => {
+                const active = item.effort === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={active}
+                    title={active ? 'Click again to clear' : undefined}
+                    onClick={() => setEffort(value)}
+                    className={`${SEG} ${
+                      active ? `${EFFORT_META[value].chip} border-transparent` : SEG_OFF
+                    }`}
+                  >
+                    {EFFORT_META[value].label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
     </div>

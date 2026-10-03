@@ -29,6 +29,7 @@ const summarize = (f: ScheduleFilter): string => {
   if (f.impacts.length > 0) parts.push(f.impacts.map((i) => IMPACT_META[i].label).join(', '));
   if (f.efforts.length > 0) parts.push(f.efforts.map((e) => EFFORT_META[e].label).join(', '));
   if (f.untriaged) parts.push('Untriaged');
+  if (f.inProgress) parts.push('In progress');
   return parts.join(' · ');
 };
 
@@ -184,6 +185,19 @@ export const ScheduleFilterBar = ({ filter, onChange }: ScheduleFilterBarProps) 
             }`}
           >
             Untriaged
+          </button>
+          {/* Blue, matching the status chip on the row and the half-filled
+              checkbox. Unlike Untriaged beside it, this one narrows. */}
+          <button
+            type="button"
+            aria-pressed={filter.inProgress}
+            title="Items you have started"
+            onClick={() => onChange({ ...filter, inProgress: !filter.inProgress })}
+            className={`${SEG} ${
+              filter.inProgress ? 'border-transparent bg-blue-100 text-blue-700' : SEG_OFF
+            }`}
+          >
+            In progress
           </button>
         </div>
       </div>

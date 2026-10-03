@@ -191,14 +191,14 @@ export const Canvas = () => {
       const targetChecklist = checklists.find((c) => c.id === currentOverChecklistId);
       if (targetChecklist) {
         // If over a specific item, get its index
-        let insertIndex = targetChecklist.items.filter(i => !i.completed).length;
+        let insertIndex = targetChecklist.items.filter(i => i.status !== 'done').length;
 
         if (over) {
           const overId = String(over.id);
           if (!overId.startsWith('droppable-') && overId.includes('::')) {
             const [, overItemId] = overId.split('::');
             const overItemIndex = targetChecklist.items.findIndex((i) => i.id === overItemId);
-            if (overItemIndex !== -1 && !targetChecklist.items[overItemIndex].completed) {
+            if (overItemIndex !== -1 && targetChecklist.items[overItemIndex].status !== 'done') {
               insertIndex = overItemIndex;
             }
           }
@@ -227,7 +227,7 @@ export const Canvas = () => {
               const activeItem = sourceChecklist.items[oldIndex];
               const overItem = sourceChecklist.items[newIndex];
 
-              if (!activeItem.completed && !overItem.completed) {
+              if (activeItem.status !== 'done' && overItem.status !== 'done') {
                 reorderItems(activeChecklistId, oldIndex, newIndex);
               }
             }

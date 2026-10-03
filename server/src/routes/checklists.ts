@@ -4,6 +4,7 @@ import { authMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
+const STATUSES = ['todo', 'in_progress', 'done'];
 const IMPACTS = ['low', 'medium', 'high'];
 const EFFORTS = ['quick', 'moderate', 'heavy'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -47,7 +48,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         color: color || 'default',
         userId: req.userId!,
         items: {
-          create: [{ text: '', completed: false, order: 0 }],
+          create: [{ text: '', status: 'todo', order: 0 }],
         },
       },
       include: { items: true },
@@ -171,7 +172,7 @@ router.post('/:id/items', async (req: AuthRequest, res: Response) => {
     const item = await prisma.checklistItem.create({
       data: {
         text: text || '',
-        completed: false,
+        status: 'todo',
         order,
         checklistId: id,
         ...(scheduledFor !== undefined && { scheduledFor }),
@@ -193,7 +194,7 @@ router.post('/:id/items', async (req: AuthRequest, res: Response) => {
 router.patch('/:checklistId/items/:itemId', async (req: AuthRequest, res: Response) => {
   const prisma: PrismaClient = req.app.get('prisma');
   const { checklistId, itemId } = req.params;
-  const { text, completed, scheduledFor, dueDate, impact, effort, notes } = req.body;
+  const { text, status, scheduledFor, dueDate, impact, effort, notes } = req.body;
 
   try {
     // Verify ownership
@@ -203,6 +204,12 @@ router.patch('/:checklistId/items/:itemId', async (req: AuthRequest, res: Respon
 
     if (!checklist) {
       return res.status(404).json({ error: 'Checklist not found' });
+    }
+
+    // Never null, unlike impact/effort: every item has a status, and 'todo' is
+    // the cleared state.
+    if (status !== undefined && !STATUSES.includes(status)) {
+      return res.status(400).json({ error: `status must be one of ${STATUSES.join(', ')}` });
     }
 
     if (impact !== undefined && impact !== null && !IMPACTS.includes(impact)) {
@@ -223,7 +230,7 @@ router.patch('/:checklistId/items/:itemId', async (req: AuthRequest, res: Respon
       where: { id: itemId },
       data: {
         ...(text !== undefined && { text }),
-        ...(completed !== undefined && { completed }),
+        ...(status !== undefined && { status }),
         ...(scheduledFor !== undefined && { scheduledFor }),
         ...(dueDate !== undefined && { dueDate }),
         ...(impact !== undefined && { impact }),
@@ -436,7 +443,7 @@ router.post('/:id/select-all', async (req: AuthRequest, res: Response) => {
 
     await prisma.checklistItem.updateMany({
       where: { checklistId: id },
-      data: { completed: true },
+      data: { status: 'done' },
     });
 
     res.json({ success: true });
@@ -459,8 +466,8 @@ router.post('/:id/deselect-all', async (req: AuthRequest, res: Response) => {
     }
 
     await prisma.checklistItem.updateMany({
-      where: { checklistId: id },
-      data: { completed: false },
+      where: { checklistId: id, status: 'done' },
+      data: { status: 'todo' },
     });
 
     res.json({ success: true });
@@ -483,7 +490,7 @@ router.delete('/:id/completed', async (req: AuthRequest, res: Response) => {
     }
 
     await prisma.checklistItem.deleteMany({
-      where: { checklistId: id, completed: true },
+      where: { checklistId: id, status: 'done' },
     });
 
     res.json({ success: true });

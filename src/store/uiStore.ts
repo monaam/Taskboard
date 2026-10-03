@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { Effort, Impact } from '../types';
 
 // Ephemeral UI state, deliberately kept out of checklistStore so it never
 // touches the persistence surface.
@@ -14,61 +13,58 @@ type ItemDetailState = {
 
 export const useItemDetailStore = create<ItemDetailState>()((set) => ({
   openItemId: null,
-  // The two drawers are mutually exclusive. Safe to close the create panel
-  // because its draft outlives it — see useCreateItemStore.
+  // The two overlays are mutually exclusive: both are `fixed`, so two open at
+  // once would simply stack on each other.
   openItemDetail: (itemId: string) => {
-    useCreateItemStore.getState().closeCreateItem();
+    useQuickAddStore.getState().closeQuickAdd();
     set({ openItemId: itemId });
   },
   closeItemDetail: () => set({ openItemId: null }),
 }));
 
-// Empty strings, not null, for the three text-ish fields: they are bound
-// straight to inputs, and undefined/null there triggers React's
-// uncontrolled-to-controlled warning.
-export type CreateItemDraft = {
-  checklistId: string | null; // null = "first checklist"
-  text: string;
-  scheduledFor: string; // '' = unset, matching the date input
-  dueDate: string;
-  impact: Impact | null;
-  effort: Effort | null;
-  notes: string;
-};
-
-const EMPTY_DRAFT: CreateItemDraft = {
-  checklistId: null,
-  text: '',
-  scheduledFor: '',
-  dueDate: '',
-  impact: null,
-  effort: null,
-  notes: '',
-};
-
-type CreateItemState = {
+type QuickAddState = {
   isOpen: boolean;
-  draft: CreateItemDraft;
-  openCreateItem: () => void;
-  closeCreateItem: () => void;
-  setDraft: (patch: Partial<CreateItemDraft>) => void;
-  resetDraft: () => void;
+  // Which checklist the bar is pointed at. Lives here rather than in the
+  // component so the choice survives closing and reopening the bar — picking
+  // the list again on every open is exactly the friction the bar exists to
+  // remove. null means "the first checklist", resolved at render time so a
+  // deleted list cannot leave a stale id behind.
+  targetChecklistId: string | null;
+  openQuickAdd: () => void;
+  closeQuickAdd: () => void;
+  setTargetChecklistId: (id: string | null) => void;
 };
 
-// The draft lives here rather than in CreateItemPanel so that closing is never
-// destructive: Escape, the backdrop and × need no confirm dialog, and the panel
-// can be unmounted (or pre-empted by the detail panel) without losing typing.
-// resetDraft runs only after a successful submit.
-export const useCreateItemStore = create<CreateItemState>()((set) => ({
+// The only way to create a task, and mutually exclusive with the detail panel
+// for the same reason given there.
+export const useQuickAddStore = create<QuickAddState>()((set) => ({
   isOpen: false,
-  draft: EMPTY_DRAFT,
-  openCreateItem: () => {
+  targetChecklistId: null,
+  openQuickAdd: () => {
     useItemDetailStore.getState().closeItemDetail();
     set({ isOpen: true });
   },
-  closeCreateItem: () => set({ isOpen: false }),
-  setDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
-  resetDraft: () => set({ draft: EMPTY_DRAFT }),
+  closeQuickAdd: () => set({ isOpen: false }),
+  setTargetChecklistId: (targetChecklistId) => set({ targetChecklistId }),
+}));
+
+type GuideState = {
+  isOpen: boolean;
+  openGuide: () => void;
+  closeGuide: () => void;
+};
+
+// The guide is the one genuinely modal overlay — it covers the screen and is
+// read, not worked alongside — so it closes the other two on open rather than
+// the other way round.
+export const useGuideStore = create<GuideState>()((set) => ({
+  isOpen: false,
+  openGuide: () => {
+    useItemDetailStore.getState().closeItemDetail();
+    useQuickAddStore.getState().closeQuickAdd();
+    set({ isOpen: true });
+  },
+  closeGuide: () => set({ isOpen: false }),
 }));
 
 export type AppView = 'board' | 'priority' | 'schedule';

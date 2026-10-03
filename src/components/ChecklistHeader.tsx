@@ -51,7 +51,7 @@ export const ChecklistHeader = ({
   const [showMenu, setShowMenu] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
 
-  const hasCompletedItems = checklist?.items.some(item => item.completed) || false;
+  const hasCompletedItems = checklist?.items.some(item => item.status === 'done') || false;
   const hasItems = (checklist?.items.length || 0) > 0;
 
   if (!checklist) return null;
@@ -272,7 +272,7 @@ export const ChecklistHeader = ({
       {/* Item count - hidden when collapsed in list view */}
       {(!listViewMode || !isCollapsed) && (
         <p className="text-sm text-gray-500">
-          {checklist.items.length} items • {checklist.items.filter(item => item.completed).length} completed
+          {checklist.items.length} items • {checklist.items.filter(item => item.status === 'done').length} completed
         </p>
       )}
     </div>

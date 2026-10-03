@@ -3,6 +3,7 @@ import {
   ChecklistItem,
   Effort,
   Impact,
+  ItemStatus,
   EFFORT_META,
   EFFORT_ORDER,
   IMPACT_META,
@@ -13,6 +14,7 @@ import { useItemDetailStore } from '../store/uiStore';
 import { DATE_RE } from '../utils/dates';
 import { SlideOverPanel } from './SlideOverPanel';
 import { ChoiceRow, DateRow, NotesField } from './ItemFieldRows';
+import { StatusPicker } from './StatusPicker';
 
 /**
  * Must be mounted OUTSIDE <Canvas />: see SlideOverPanel for why.
@@ -65,6 +67,10 @@ interface ItemDetailContentProps {
 
 const ItemDetailContent = ({ item, checklistId, onClose }: ItemDetailContentProps) => {
   const updateItemFields = useChecklistStore((s) => s.updateItemFields);
+  // Not updateItemFields: status is not an ItemField, and setItemStatus is the
+  // silent primitive — a deliberate edit here should not raise the undo toast
+  // the checkbox does.
+  const setItemStatus = useChecklistStore((s) => s.setItemStatus);
 
   const [notes, setNotes] = useState(item.notes ?? '');
 
@@ -92,6 +98,11 @@ const ItemDetailContent = ({ item, checklistId, onClose }: ItemDetailContentProp
       item.id,
       field === 'dueDate' ? { dueDate: next } : { scheduledFor: next }
     );
+  };
+
+  const commitStatus = (next: ItemStatus) => {
+    if (item.status === next) return;
+    setItemStatus(checklistId, item.id, next);
   };
 
   const commitImpact = (value: Impact | null) => {
@@ -139,6 +150,8 @@ const ItemDetailContent = ({ item, checklistId, onClose }: ItemDetailContentProp
           </svg>
         </button>
       </div>
+
+      <StatusPicker status={item.status} onChange={commitStatus} />
 
       <DateRow
         label="Scheduled for"

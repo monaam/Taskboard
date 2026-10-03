@@ -7,6 +7,8 @@ import { useDroppable } from '@dnd-kit/core';
 import { useChecklistStore } from '../store/checklistStore';
 import { ChecklistHeader } from './ChecklistHeader';
 import { ChecklistItem } from './ChecklistItem';
+import { QuickAddInput } from './QuickAddInput';
+import { QuickAddParse, resolveChecklist } from '../utils/quickAdd';
 import { CHECKLIST_COLORS } from '../types';
 
 interface ChecklistProps {
@@ -34,7 +36,7 @@ export const Checklist = ({
   onMoveUp,
   onMoveDown
 }: ChecklistProps) => {
-  const { checklists, updateChecklistPosition } = useChecklistStore();
+  const { checklists, updateChecklistPosition, addItem } = useChecklistStore();
 
   // Make this checklist a droppable area for cross-list dragging
   const { setNodeRef: setDroppableRef } = useDroppable({
@@ -48,15 +50,28 @@ export const Checklist = ({
   const dragStartRef = useRef({ x: 0, y: 0 });
   const cardRef = useRef<HTMLDivElement>(null);
 
+  // In-progress rows float to the top of the open group; everything else keeps
+  // the manual order. A display sort only — the stored order is untouched, so an
+  // item drops back to exactly where it was when it stops being in progress.
+  //
+  // One pass with three buckets rather than three filters, and pushing in array
+  // order makes the partition stable: relative order inside each bucket is the
+  // board's order, verbatim.
   const { incompleteItems, completedItems } = useMemo(() => {
     if (!checklist) return { incompleteItems: [], completedItems: [] };
 
-    const incomplete = checklist.items.filter((item) => !item.completed);
-    const completed = checklist.items.filter((item) => item.completed);
+    const inProgress: typeof checklist.items = [];
+    const todo: typeof checklist.items = [];
+    const done: typeof checklist.items = [];
+    for (const item of checklist.items) {
+      if (item.status === 'done') done.push(item);
+      else if (item.status === 'in_progress') inProgress.push(item);
+      else todo.push(item);
+    }
 
     return {
-      incompleteItems: incomplete,
-      completedItems: hideCompleted ? [] : completed,
+      incompleteItems: [...inProgress, ...todo],
+      completedItems: hideCompleted ? [] : done,
     };
   }, [checklist, hideCompleted]);
 
@@ -143,6 +158,14 @@ export const Checklist = ({
 
   const colorStyles = CHECKLIST_COLORS[checklist.color || 'default'];
 
+  // A #list token still wins here: the chip shows where the task is going, so
+  // honouring it is not a surprise, and typing it is faster than moving the
+  // row afterwards.
+  const handleQuickAdd = async (parse: QuickAddParse) => {
+    const target = resolveChecklist(checklists, parse.listQuery) ?? checklist;
+    await addItem(target.id, parse.text, parse.fields);
+  };
+
   return (
     <div
       ref={cardRef}
@@ -170,12 +193,13 @@ export const Checklist = ({
 
         {/* Items list - Always droppable, hidden when collapsed in list view */}
         {(!listViewMode || !isCollapsed) && (
+          <>
           <div ref={setDroppableRef} className="min-h-[60px]">
           {incompleteItems.length === 0 && completedItems.length === 0 ? (
             <p className="text-center text-gray-400 py-8">
               {hideCompleted && checklist.items.length > 0
                 ? 'All items completed! 🎉'
-                : 'No items yet. Add one above!'}
+                : 'No items yet — add one below.'}
             </p>
           ) : (
             <>
@@ -220,7 +244,19 @@ export const Checklist = ({
               </div>
             </>
           )}
-        </div>
+          </div>
+
+          {/* The fast path, always available — including on an empty list, which
+              before this had no way to take a first item at all: the inline
+              Enter-to-insert flow needs an existing row to hang off. */}
+          <div className="mt-3 border-t border-gray-200/70 pt-3">
+            {/* No showHint here: the legend needs the quick add bar's 42rem to
+                stay on one line, and wrapped across five lines inside a 384px
+                card it reads as clutter. The chips still teach the syntax the
+                moment a token is typed. */}
+            <QuickAddInput onAdd={handleQuickAdd} placeholder="Add a task…" />
+          </div>
+          </>
         )}
       </div>
     </div>

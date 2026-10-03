@@ -190,14 +190,24 @@ export type ScheduleFilter = {
   efforts: Effort[];
   /** Items missing an impact, an effort, or both. */
   untriaged: boolean;
+  /**
+   * Narrows (AND), unlike `untriaged` above, which unions. The axes can already
+   * reach an in-progress item, so there is nothing to rescue it from.
+   */
+  inProgress: boolean;
 };
 
 // Module-level so "no filter" is referentially stable: both helpers below can
 // then hand back their input untouched and the view re-renders nothing.
-export const EMPTY_SCHEDULE_FILTER: ScheduleFilter = { impacts: [], efforts: [], untriaged: false };
+export const EMPTY_SCHEDULE_FILTER: ScheduleFilter = {
+  impacts: [],
+  efforts: [],
+  untriaged: false,
+  inProgress: false,
+};
 
 export const isFilterActive = (f: ScheduleFilter): boolean =>
-  f.impacts.length > 0 || f.efforts.length > 0 || f.untriaged;
+  f.impacts.length > 0 || f.efforts.length > 0 || f.untriaged || f.inProgress;
 
 /**
  * OR within an axis, AND across them: {High, Medium} × {Quick} reads as "high
@@ -210,6 +220,11 @@ export const isFilterActive = (f: ScheduleFilter): boolean =>
  * items collect — would empty out the moment you touched a chip.
  */
 export const matchesScheduleFilter = (item: ChecklistItem, f: ScheduleFilter): boolean => {
+  // Applied before the axis logic below so it genuinely intersects: folding it
+  // in alongside `untriaged` would make it another union and let it widen the
+  // list instead of narrowing it.
+  if (f.inProgress && item.status !== 'in_progress') return false;
+
   const anyAxis = f.impacts.length > 0 || f.efforts.length > 0;
   if (!anyAxis && !f.untriaged) return true;
 

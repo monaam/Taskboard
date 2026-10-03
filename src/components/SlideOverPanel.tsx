@@ -7,7 +7,7 @@ interface SlideOverPanelProps {
 }
 
 /**
- * Backdrop + drawer shell, shared by ItemDetailPanel and CreateItemPanel.
+ * Backdrop + drawer shell for ItemDetailPanel.
  *
  * Must be mounted OUTSIDE <Canvas />: `.canvas-content` carries a transform,
  * which makes it the containing block for `position: fixed` descendants — a

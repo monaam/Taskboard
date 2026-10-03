@@ -32,6 +32,7 @@ const summarize = (f: PriorityFilter, sources: MatrixSource[]): string => {
     parts.push(f.schedule === 'scheduled' ? 'Scheduled' : 'Not scheduled');
   }
   if (f.overdue) parts.push('Overdue');
+  if (f.inProgress) parts.push('In progress');
   if (f.checklistIds.length > 0) {
     // Driven off `sources`, not off the id array, so the titles come out in
     // board order and read the same as the chip row below no matter which chip
@@ -169,6 +170,17 @@ export const PriorityFilterBar = ({ filter, onChange, sources }: PriorityFilterB
             }`}
           >
             Overdue
+          </button>
+          <button
+            type="button"
+            aria-pressed={filter.inProgress}
+            title="Items you have started"
+            onClick={() => onChange({ ...filter, inProgress: !filter.inProgress })}
+            className={`${SEG} ${
+              filter.inProgress ? 'border-transparent bg-blue-100 text-blue-700' : SEG_OFF
+            }`}
+          >
+            In progress
           </button>
         </div>
 

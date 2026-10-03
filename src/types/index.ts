@@ -1,3 +1,7 @@
+// Three states, one field: a pair of booleans could encode "done and also in
+// progress", and something has to answer for that every time it is read.
+export type ItemStatus = 'todo' | 'in_progress' | 'done';
+
 export type Impact = 'low' | 'medium' | 'high';
 export type Effort = 'quick' | 'moderate' | 'heavy';
 
@@ -43,13 +47,23 @@ export const EFFORT_META: Record<Effort, { label: string; chip: string }> = {
   heavy: { label: 'Heavy', chip: 'bg-purple-100 text-purple-700' },
 };
 
+// Class strings in full, same reason as IMPACT_META below.
+export const STATUS_META: Record<ItemStatus, { label: string; chip: string }> = {
+  todo: { label: 'To do', chip: 'bg-gray-100 text-gray-600' },
+  in_progress: { label: 'In progress', chip: 'bg-blue-100 text-blue-700' },
+  done: { label: 'Done', chip: 'bg-gray-100 text-gray-500' },
+};
+
+// Display order everywhere a status is offered, and the natural order of work.
+export const STATUS_ORDER: ItemStatus[] = ['todo', 'in_progress', 'done'];
+
 export const IMPACT_ORDER: Impact[] = ['low', 'medium', 'high'];
 export const EFFORT_ORDER: Effort[] = ['quick', 'moderate', 'heavy'];
 
 export type ChecklistItem = {
   id: string;
   text: string;
-  completed: boolean;
+  status: ItemStatus;
   createdAt: number;
   updatedAt: number;
   // null means "not triaged". Dates are 'YYYY-MM-DD' strings, never Date —
@@ -89,10 +103,11 @@ export type ChecklistState = {
   insertItemAfter: (checklistId: string, afterItemId: string) => string;
   deleteItem: (checklistId: string, itemId: string) => void;
   updateItemText: (checklistId: string, itemId: string, text: string) => void;
-  toggleItemComplete: (checklistId: string, itemId: string) => void;
-  // The silent primitive behind toggleItemComplete: sets an absolute state and
-  // raises no toast. Promise<void> because toggleItemComplete awaits it.
-  setItemCompleted: (checklistId: string, itemId: string, completed: boolean) => Promise<void>;
+  // The row path: sets a status and raises the undo toast on a completion.
+  chooseItemStatus: (checklistId: string, itemId: string, status: ItemStatus) => void;
+  // The silent primitive behind chooseItemStatus: sets an absolute state and
+  // raises no toast. Promise<void> because chooseItemStatus awaits it.
+  setItemStatus: (checklistId: string, itemId: string, status: ItemStatus) => Promise<void>;
   reorderItems: (checklistId: string, startIndex: number, endIndex: number) => void;
   reorderChecklists: (startIndex: number, endIndex: number) => void;
   arrangeChecklists: (positions: { id: string; x: number; y: number }[]) => void;

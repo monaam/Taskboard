@@ -7,7 +7,7 @@ import { UndoCompletion, useUndoStore } from '../store/uiStore';
  *
  * Raised by toggleItemComplete in checklistStore, so it covers every surface
  * that ticks a box: the board, TriageRow and ScheduleRow. The two list views
- * drop completed items outright (isEligible), and the board hides them whenever
+ * drop done items outright (isEligible), and the board hides them whenever
  * "Hide Completed" is on — in all three the row is simply gone, and this is the
  * only way back.
  */
@@ -69,7 +69,7 @@ const UndoCard = ({ undo }: { undo: UndoCompletion }) => {
   // deletion of the item, "Delete Completed", "Deselect All", a manual re-tick,
   // and the temp-id → server-id swap on a brand-new row.
   const isLive = useChecklistStore((s) =>
-    s.checklists.some((c) => c.items.some((i) => i.id === itemId && i.completed))
+    s.checklists.some((c) => c.items.some((i) => i.id === itemId && i.status === 'done'))
   );
 
   useEffect(() => {
@@ -100,7 +100,7 @@ const UndoCard = ({ undo }: { undo: UndoCompletion }) => {
     // No owner = the checklist was deleted. Dismiss and do nothing; never fall
     // back to matching on text.
     if (owner) {
-      useChecklistStore.getState().setItemCompleted(owner.id, itemId, false);
+      useChecklistStore.getState().setItemStatus(owner.id, itemId, 'todo');
     }
     clearUndo(id);
   }, [id, itemId, clearUndo]);

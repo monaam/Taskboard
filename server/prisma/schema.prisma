@@ -39,7 +39,7 @@ model Checklist {
 model ChecklistItem {
   id        String   @id @default(uuid())
   text      String   @db.Text
-  completed Boolean  @default(false)
+  status    String   @default("todo")
 
   scheduledFor String?
   dueDate      String?
