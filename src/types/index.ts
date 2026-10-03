@@ -1,3 +1,22 @@
+export type TokenScope = 'read' | 'write';
+
+/** An API token as the server returns it — never including the token value,
+ *  which exists only in the response that created it. */
+export type ApiToken = {
+  id: string;
+  name: string;
+  /** The first characters of the value, for telling tokens apart. */
+  prefix: string;
+  scope: TokenScope;
+  /** ISO timestamps, unlike item dates, which are calendar days. */
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  createdAt: string;
+};
+
+/** Only the create response carries the value. */
+export type CreatedApiToken = ApiToken & { token: string };
+
 // Three states, one field: a pair of booleans could encode "done and also in
 // progress", and something has to answer for that every time it is read.
 export type ItemStatus = 'todo' | 'in_progress' | 'done';

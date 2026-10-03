@@ -1,5 +1,9 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+/** The API origin, for links the user follows rather than requests we make —
+ *  the OpenAPI document on the token screen. */
+export const apiBaseUrl = () => API_URL;
+
 class ApiClient {
   private token: string | null = null;
   private onUnauthorized?: () => void;
@@ -100,6 +104,23 @@ class ApiClient {
 
   async deleteChecklist(id: string) {
     return this.request<void>(`/checklists/${id}`, { method: 'DELETE' });
+  }
+
+  // --- API tokens. Session-authenticated only; the server rejects these if
+  // called with a token, so a leaked token cannot mint another.
+  async listTokens() {
+    return this.request<import('../types').ApiToken[]>('/tokens');
+  }
+
+  async createToken(data: { name: string; scope: string; expiresInDays: number | null }) {
+    return this.request<import('../types').CreatedApiToken>('/tokens', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async revokeToken(id: string) {
+    return this.request<void>(`/tokens/${id}`, { method: 'DELETE' });
   }
 
   async addItem(

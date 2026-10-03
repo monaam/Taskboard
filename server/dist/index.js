@@ -9,6 +9,9 @@ const client_1 = require("@prisma/client");
 const auth_1 = __importDefault(require("./routes/auth"));
 const checklists_1 = __importDefault(require("./routes/checklists"));
 const textNotes_1 = __importDefault(require("./routes/textNotes"));
+const tokens_1 = __importDefault(require("./routes/tokens"));
+const auth_2 = require("./middleware/auth");
+const openapi_1 = require("./lib/openapi");
 const app = (0, express_1.default)();
 const prisma = new client_1.PrismaClient();
 const PORT = process.env.PORT || 3001;
@@ -30,6 +33,23 @@ app.set('prisma', prisma);
 app.use('/api/auth', auth_1.default);
 app.use('/api/checklists', checklists_1.default);
 app.use('/api/textnotes', textNotes_1.default);
+// authMiddleware here rather than inside the router: tokens.ts mounts
+// requireSession at its own root, and that can only judge req.authKind once
+// something has set it.
+app.use('/api/tokens', auth_2.authMiddleware, tokens_1.default);
+// The API's own documentation, linked from the token screen. Unauthenticated
+// on purpose: an agent has to be able to discover the shape of the API before
+// it has been handed a token, and the document describes no private data.
+//
+// Built per request from the forwarded host, so the `servers` block names the
+// origin the caller actually reached -- behind nginx, the process only sees
+// 127.0.0.1:3000 and a hardcoded URL would be wrong in one environment or the
+// other.
+app.get('/api/docs', (req, res) => {
+    const proto = req.headers['x-forwarded-proto'] ?? req.protocol;
+    const host = req.headers['x-forwarded-host'] ?? req.headers.host ?? '';
+    res.json((0, openapi_1.buildOpenApiDocument)(`${proto}://${host}`));
+});
 // Health check. uptime is seconds since the process started, so a deploy that
 // failed to restart the daemon is visible rather than silent.
 app.get('/api/health', (_, res) => {

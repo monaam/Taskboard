@@ -524,7 +524,15 @@ export const GuideOverlay = () => {
               <p>Your zoom and position are remembered for next time.</p>
             </Section>
 
-            <p className="border-t border-gray-100 pt-6 text-[13px] text-gray-400">
+            <p className="border-t border-gray-100 pt-6 text-[13px] leading-relaxed text-gray-500">
+              <strong className="font-semibold text-gray-800">Wiring up an agent?</strong> Click your
+              username to open <strong className="font-semibold text-gray-800">Settings</strong> and
+              create an API token — read-only or read &amp; write, with an expiry. The API describes
+              itself at <code className="rounded bg-gray-100 px-1 py-0.5 text-[12px]">/api/docs</code>,
+              linked from that screen.
+            </p>
+
+            <p className="pt-2 text-[13px] text-gray-400">
               That is the whole app. Press <Kbd>Esc</Kbd> to get back to work.
             </p>
           </div>

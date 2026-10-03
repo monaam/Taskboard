@@ -62,9 +62,29 @@ export const useGuideStore = create<GuideState>()((set) => ({
   openGuide: () => {
     useItemDetailStore.getState().closeItemDetail();
     useQuickAddStore.getState().closeQuickAdd();
+    useSettingsStore.getState().closeSettings();
     set({ isOpen: true });
   },
   closeGuide: () => set({ isOpen: false }),
+}));
+
+type SettingsState = {
+  isOpen: boolean;
+  openSettings: () => void;
+  closeSettings: () => void;
+};
+
+// Settings is a drawer like the item detail panel, so it takes the same
+// exclusivity: opening it closes the other overlays rather than stacking.
+export const useSettingsStore = create<SettingsState>()((set) => ({
+  isOpen: false,
+  openSettings: () => {
+    useItemDetailStore.getState().closeItemDetail();
+    useQuickAddStore.getState().closeQuickAdd();
+    useGuideStore.getState().closeGuide();
+    set({ isOpen: true });
+  },
+  closeSettings: () => set({ isOpen: false }),
 }));
 
 export type AppView = 'board' | 'priority' | 'schedule';
