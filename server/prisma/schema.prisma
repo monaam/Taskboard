@@ -16,6 +16,7 @@ model User {
 
   checklists Checklist[]
   textNotes  TextNote[]
+  apiTokens  ApiToken[]
 }
 
 model Checklist {
@@ -66,6 +67,45 @@ model TextNote {
   color     String   @default("default")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// A personal access token, for agents and scripts calling the API directly.
+model ApiToken {
+  id String @id @default(uuid())
+
+  /// What it is for, chosen by the user. Not unique: two agents may share a name.
+  name String
+
+  /// SHA-256 hex of the full token. The plaintext is shown once at creation and
+  /// never stored, so a database leak cannot be replayed against the API.
+  ///
+  /// SHA-256 rather than bcrypt deliberately: this runs on every authenticated
+  /// request, and the token is 32 random bytes, so there is no low-entropy
+  /// secret for a slow hash to protect. Unique, so verification is one indexed
+  /// lookup rather than a scan.
+  tokenHash String @unique
+
+  /// The first few characters, for telling tokens apart in the UI. Not a secret
+  /// and far too short to brute-force the rest from.
+  prefix String
+
+  /// 'read' | 'write'. Enforced by HTTP method in the auth middleware, so a new
+  /// route cannot forget to check it.
+  scope String
+
+  /// null means it never expires.
+  expiresAt DateTime?
+
+  /// Written at most once a minute, not on every request -- see the auth
+  /// middleware. Lets a forgotten token be spotted.
+  lastUsedAt DateTime?
+
+  createdAt DateTime @default(now())
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)

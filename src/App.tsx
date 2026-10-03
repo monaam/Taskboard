@@ -5,12 +5,13 @@ import { useTextNoteStore } from './store/textNoteStore';
 import { Canvas } from './components/Canvas';
 import { QuickAddBar } from './components/QuickAddBar';
 import { GuideOverlay } from './components/GuideOverlay';
+import { SettingsPanel } from './components/SettingsPanel';
 import { ItemDetailPanel } from './components/ItemDetailPanel';
 import { PriorityView } from './components/PriorityView';
 import { ScheduleView } from './components/ScheduleView';
 import { Auth } from './components/Auth';
 import { UndoToast } from './components/UndoToast';
-import { useGuideStore, useQuickAddStore, useViewStore } from './store/uiStore';
+import { useGuideStore, useQuickAddStore, useSettingsStore, useViewStore } from './store/uiStore';
 
 function AppContent() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -23,6 +24,8 @@ function AppContent() {
   const openQuickAdd = useQuickAddStore((s) => s.openQuickAdd);
   const isGuideOpen = useGuideStore((s) => s.isOpen);
   const openGuide = useGuideStore((s) => s.openGuide);
+  const isSettingsOpen = useSettingsStore((s) => s.isOpen);
+  const openSettings = useSettingsStore((s) => s.openSettings);
 
   useEffect(() => {
     if (user) {
@@ -91,9 +94,17 @@ function AppContent() {
     <div className="min-h-screen bg-gray-100">
       {/* User menu - responsive positioning */}
       <div className="fixed top-2 left-2 sm:top-4 sm:left-4 z-50 flex items-center gap-1 sm:gap-2">
-        <span className="text-xs sm:text-sm text-gray-600 bg-white px-2 sm:px-3 py-1 rounded-lg shadow truncate max-w-[100px] sm:max-w-none">
+        {/* The username is the door to settings — the one place a per-account
+            screen belongs, and it needs no new chrome in a cluster that is
+            already four controls wide on mobile. */}
+        <button
+          type="button"
+          onClick={openSettings}
+          title="Settings and API tokens"
+          className="max-w-[100px] truncate rounded-lg bg-white px-2 py-1 text-xs text-gray-600 shadow transition-shadow hover:shadow-md sm:max-w-none sm:px-3 sm:text-sm"
+        >
           {user.username}
-        </span>
+        </button>
         <button
           onClick={logout}
           className="text-xs sm:text-sm text-gray-500 hover:text-gray-700 bg-white px-2 sm:px-3 py-1 rounded-lg shadow hover:shadow-md transition-shadow"
@@ -189,6 +200,8 @@ function AppContent() {
       {isQuickAddOpen && <QuickAddBar />}
 
       {isGuideOpen && <GuideOverlay />}
+
+      {isSettingsOpen && <SettingsPanel />}
 
       {/* Same rule as the FAB and the panels: outside Canvas, whose
           .canvas-content is transformed and would become the containing block

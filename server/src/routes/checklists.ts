@@ -122,7 +122,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
 router.post('/:id/items', async (req: AuthRequest, res: Response) => {
   const prisma: PrismaClient = req.app.get('prisma');
   const { id } = req.params;
-  const { text, afterItemId, scheduledFor, dueDate, impact, effort, notes } = req.body;
+  const { text, afterItemId, status, scheduledFor, dueDate, impact, effort, notes } = req.body;
 
   try {
     // Verify ownership
@@ -138,6 +138,14 @@ router.post('/:id/items', async (req: AuthRequest, res: Response) => {
     // Must stay above the afterItemId shift below: that updateMany is already
     // committed when it runs, so a 400 after it would leave a permanent gap in
     // `order` with nothing to roll it back.
+    // Accepted on create as well as on PATCH: an agent should be able to log
+    // something it has already started without a second round trip, and a
+    // field the update route takes but the create route silently drops is the
+    // kind of asymmetry nobody reads the docs carefully enough to expect.
+    if (status !== undefined && !STATUSES.includes(status)) {
+      return res.status(400).json({ error: `status must be one of ${STATUSES.join(', ')}` });
+    }
+
     if (impact !== undefined && impact !== null && !IMPACTS.includes(impact)) {
       return res.status(400).json({ error: `impact must be one of ${IMPACTS.join(', ')} or null` });
     }
@@ -172,7 +180,7 @@ router.post('/:id/items', async (req: AuthRequest, res: Response) => {
     const item = await prisma.checklistItem.create({
       data: {
         text: text || '',
-        status: 'todo',
+        status: status ?? 'todo',
         order,
         checklistId: id,
         ...(scheduledFor !== undefined && { scheduledFor }),
