@@ -125,7 +125,7 @@ class ApiClient {
     itemId: string,
     data: {
       text?: string;
-      completed?: boolean;
+      status?: string;
       scheduledFor?: string | null;
       dueDate?: string | null;
       impact?: string | null;

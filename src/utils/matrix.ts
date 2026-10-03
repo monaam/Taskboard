@@ -75,6 +75,12 @@ export type PriorityFilter = {
    * every other control here, so intersecting is both safe and what you'd guess.
    */
   overdue: boolean;
+  /**
+   * Narrows (AND), for the same reason `overdue` does: in-progress items are
+   * reachable by every other control here, so intersecting is both safe and
+   * what you'd guess. Nothing like ScheduleFilter.untriaged, which has to union.
+   */
+  inProgress: boolean;
   /** Checklist ids. Empty means every list, not no list. */
   checklistIds: string[];
 };
@@ -87,21 +93,24 @@ export type MatrixSource = { checklistId: string; title: string };
 export const EMPTY_PRIORITY_FILTER: PriorityFilter = {
   schedule: 'any',
   overdue: false,
+  inProgress: false,
   checklistIds: [],
 };
 
 export const isPriorityFilterActive = (f: PriorityFilter): boolean =>
-  f.schedule !== 'any' || f.overdue || f.checklistIds.length > 0;
+  f.schedule !== 'any' || f.overdue || f.inProgress || f.checklistIds.length > 0;
 
-/** AND across all three controls. */
+/** AND across all four controls. */
 export const matchesPriorityFilter = (
   entry: PriorityEntry,
   f: PriorityFilter,
   today: string
 ): boolean => {
-  // An empty list means "any", so the other two controls don't silently require
-  // a checklist to be picked as well.
+  // An empty list means "any", so the other controls don't silently require a
+  // checklist to be picked as well.
   if (f.checklistIds.length > 0 && !f.checklistIds.includes(entry.checklistId)) return false;
+
+  if (f.inProgress && entry.item.status !== 'in_progress') return false;
 
   const { scheduledFor, dueDate } = entry.item;
 

@@ -5,6 +5,7 @@ import { ChecklistItem as ChecklistItemType } from '../types';
 import { useChecklistStore } from '../store/checklistStore';
 import { useItemDetailStore } from '../store/uiStore';
 import { ItemBadges } from './ItemBadges';
+import { StatusToggle } from './StatusToggle';
 
 interface ChecklistItemProps {
   item: ChecklistItemType;
@@ -18,7 +19,7 @@ export const ChecklistItem = ({ item, checklistId, disabled = false, autoFocus =
   const [editText, setEditText] = useState(item.text);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { toggleItemComplete, updateItemText, deleteItem, insertItemAfter } = useChecklistStore();
+  const { chooseItemStatus, updateItemText, deleteItem, insertItemAfter } = useChecklistStore();
   const openItemDetail = useItemDetailStore((s) => s.openItemDetail);
 
   // Use composite ID format for cross-checklist dragging (use :: as separator to avoid UUID dash conflicts)
@@ -105,12 +106,10 @@ export const ChecklistItem = ({ item, checklistId, disabled = false, autoFocus =
         </div>
       )}
 
-      {/* Checkbox */}
-      <input
-        type="checkbox"
-        checked={item.completed}
-        onChange={() => toggleItemComplete(checklistId, item.id)}
-        className="w-5 h-5 mt-0.5 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-0 cursor-pointer"
+      {/* Three positions, one click each — see StatusToggle. */}
+      <StatusToggle
+        status={item.status}
+        onChange={(next) => chooseItemStatus(checklistId, item.id, next)}
       />
 
       {/* Text + badges. min-w-0 here and break-words on the span keep long
@@ -133,7 +132,7 @@ export const ChecklistItem = ({ item, checklistId, disabled = false, autoFocus =
           <span
             onClick={() => setIsEditing(true)}
             className={`w-full cursor-text break-words ${
-              item.completed
+              item.status === 'done'
                 ? 'line-through text-gray-400'
                 : item.text === '' ? 'text-gray-400' : 'text-gray-800'
             }`}

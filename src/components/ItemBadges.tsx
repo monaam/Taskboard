@@ -1,4 +1,4 @@
-import { ChecklistItem } from '../types';
+import { ChecklistItem, STATUS_META } from '../types';
 import { formatDateShort, isOverdue, isToday, todayLocalISO } from '../utils/dates';
 import { getPriorityTag } from '../utils/priority';
 import { useItemDetailStore } from '../store/uiStore';
@@ -10,11 +10,15 @@ interface ItemBadgesProps {
 const BASE = 'inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] leading-4 font-medium';
 
 export const ItemBadges = ({ item }: ItemBadgesProps) => {
+  const inProgress = item.status === 'in_progress';
   const hasAny =
+    inProgress ||
     !!item.scheduledFor || !!item.dueDate || !!item.impact || !!item.effort || !!item.notes;
 
-  // Untriaged and completed rows render exactly as they did before this feature.
-  if (item.completed || !hasAny) return null;
+  // A done row shows no badges at all, as before. An in-progress row shows at
+  // least its status chip even with no other field set — that chip is the whole
+  // point of the state.
+  if (item.status === 'done' || !hasAny) return null;
 
   const today = todayLocalISO();
   const priority = getPriorityTag(item.impact, item.effort);
@@ -33,6 +37,21 @@ export const ItemBadges = ({ item }: ItemBadgesProps) => {
 
   return (
     <div className="flex flex-wrap items-center gap-1">
+      {/* First, and not a button: the other chips open the detail panel to edit
+          the field they show, but status is only ever written by the checkbox,
+          so a clickable status chip would promise an editor that does not
+          exist. */}
+      {inProgress && (
+        <span className={`${BASE} ${STATUS_META.in_progress.chip}`}>
+          {/* Half-filled square, the same shape the checkbox draws. */}
+          <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <rect x="4" y="4" width="16" height="16" rx="3" strokeWidth={2} />
+            <path d="M12 5v14h-6a2 2 0 01-2-2V7a2 2 0 012-2h6z" fill="currentColor" stroke="none" />
+          </svg>
+          {STATUS_META.in_progress.label}
+        </span>
+      )}
+
       {item.scheduledFor && (
         <button
           type="button"

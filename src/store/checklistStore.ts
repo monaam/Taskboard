@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Checklist, ChecklistState, ChecklistColor, ItemFields } from '../types';
+import { Checklist, ChecklistState, ChecklistColor, ItemFields, ItemStatus } from '../types';
 import { apiClient } from '../api/client';
 // One-way edge, and it has to stay that way: uiStore imports only zustand and
 // ../types, and must never import this file. Reaching across stores with
@@ -21,7 +21,7 @@ const transformChecklist = (data: any): Checklist => ({
   items: (data.items || []).map((item: any) => ({
     id: item.id,
     text: item.text,
-    completed: item.completed,
+    status: item.status ?? 'todo',
     createdAt: new Date(item.createdAt).getTime(),
     updatedAt: new Date(item.updatedAt).getTime(),
     // Dates stay as 'YYYY-MM-DD' strings — no conversion
@@ -125,7 +125,7 @@ export const useChecklistStore = create<ChecklistState & {
                 {
                   id: tempId,
                   text,
-                  completed: false,
+                  status: 'todo' as const,
                   createdAt: Date.now(),
                   updatedAt: Date.now(),
                   ...fields,
@@ -166,7 +166,7 @@ export const useChecklistStore = create<ChecklistState & {
         newItems.splice(itemIndex + 1, 0, {
           id: newItemId,
           text: '',
-          completed: false,
+          status: 'todo' as const,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         });
@@ -231,13 +231,13 @@ export const useChecklistStore = create<ChecklistState & {
   // Absolute, and silent. Undo calls this one so that undoing a completion
   // cannot raise a second toast. Split in this direction only: if the toast
   // lived here instead, every undo would announce itself.
-  setItemCompleted: async (checklistId: string, itemId: string, completed: boolean) => {
+  setItemStatus: async (checklistId: string, itemId: string, status: ItemStatus) => {
     const checklist = get().checklists.find((c) => c.id === checklistId);
     const item = checklist?.items.find((i) => i.id === itemId);
     // Missing = deleted while the toast was up. Already in the target state =
     // nothing to do; the early return is what makes undo idempotent and drops
     // a duplicate PATCH.
-    if (!item || item.completed === completed) return;
+    if (!item || item.status === status) return;
 
     set((state) => ({
       checklists: state.checklists.map((c) =>
@@ -245,41 +245,41 @@ export const useChecklistStore = create<ChecklistState & {
           ? {
               ...c,
               items: c.items.map((i) =>
-                i.id === itemId ? { ...i, completed, updatedAt: Date.now() } : i
+                i.id === itemId ? { ...i, status, updatedAt: Date.now() } : i
               ),
             }
           : c
       ),
     }));
     try {
-      await apiClient.updateItem(checklistId, itemId, { completed });
+      await apiClient.updateItem(checklistId, itemId, { status });
     } catch (error) {
-      console.error('Failed to toggle item:', error);
+      console.error('Failed to set item status:', error);
     }
   },
 
-  // The checkbox path — the only one the three row components use.
+  // The row path — what the status toggle calls. setItemStatus is the silent
+  // primitive underneath; this is the wrapper that announces a completion.
   //
   // Bulk operations (selectAll, deselectAll, uncheckAll, deleteAllCompleted)
-  // deliberately do not route through here: they write `completed` through
-  // their own set(), so they raise no toasts. That is correct, not an
-  // oversight — a single-item undo payload cannot represent forty rows.
-  toggleItemComplete: async (checklistId: string, itemId: string) => {
+  // deliberately do not route through here: they write `status` through their
+  // own set(), so they raise no toasts. That is correct, not an oversight — a
+  // single-item undo payload cannot represent forty rows.
+  chooseItemStatus: async (checklistId: string, itemId: string, status: ItemStatus) => {
     const checklist = get().checklists.find((c) => c.id === checklistId);
     const item = checklist?.items.find((i) => i.id === itemId);
-    if (!item) return;
+    if (!item || item.status === status) return;
 
-    const completed = !item.completed;
-    const written = get().setItemCompleted(checklistId, itemId, completed);
+    const written = get().setItemStatus(checklistId, itemId, status);
 
-    // Raised off the optimistic write rather than the round trip:
-    // setItemCompleted updates the store synchronously and only then PATCHes,
-    // and it swallows its own errors, so awaiting first would delay the toast —
-    // and with it the 6s window — by the network latency and buy nothing.
+    // Raised off the optimistic write rather than the round trip: setItemStatus
+    // updates the store synchronously and only then PATCHes, and it swallows
+    // its own errors, so awaiting first would delay the toast — and with it the
+    // 6s window — by the network latency and buy nothing.
     //
-    // Only on completion. Un-ticking is already its own undo, and offering to
-    // undo that is a loop with no exit.
-    if (completed) {
+    // Only on arriving at 'done'. The other two segments are one click from
+    // being reversed and are visible on the row, so a toast for them is noise.
+    if (status === 'done') {
       useUndoStore.getState().showUndo(itemId, item.text);
     }
     await written;
@@ -380,7 +380,7 @@ export const useChecklistStore = create<ChecklistState & {
     set((state) => ({
       checklists: state.checklists.map((c) =>
         c.id === checklistId
-          ? { ...c, items: c.items.filter((i) => !i.completed) }
+          ? { ...c, items: c.items.filter((i) => i.status !== 'done') }
           : c
       ),
     }));
@@ -395,7 +395,7 @@ export const useChecklistStore = create<ChecklistState & {
     set((state) => ({
       checklists: state.checklists.map((c) =>
         c.id === checklistId
-          ? { ...c, items: c.items.map((i) => ({ ...i, completed: false })) }
+          ? { ...c, items: c.items.map((i) => ({ ...i, status: 'todo' as const })) }
           : c
       ),
     }));
@@ -410,7 +410,7 @@ export const useChecklistStore = create<ChecklistState & {
     set((state) => ({
       checklists: state.checklists.map((c) =>
         c.id === checklistId
-          ? { ...c, items: c.items.map((i) => ({ ...i, completed: true })) }
+          ? { ...c, items: c.items.map((i) => ({ ...i, status: 'done' as const })) }
           : c
       ),
     }));
@@ -425,7 +425,12 @@ export const useChecklistStore = create<ChecklistState & {
     set((state) => ({
       checklists: state.checklists.map((c) =>
         c.id === checklistId
-          ? { ...c, items: c.items.map((i) => ({ ...i, completed: false })) }
+          ? {
+              ...c,
+              items: c.items.map((i) =>
+                i.status === 'done' ? { ...i, status: 'todo' as const } : i
+              ),
+            }
           : c
       ),
     }));
