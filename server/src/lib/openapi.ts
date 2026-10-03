@@ -128,8 +128,20 @@ export const buildOpenApiDocument = (baseUrl: string) => ({
       get: {
         tags: ['Auth'],
         summary: 'Who this credential belongs to',
+        description:
+          'Accepts a session JWT or an API token. The cheapest way for an agent to check that its token works, and authKind tells it which credential the server saw.',
         responses: {
-          200: ok({ type: 'object', properties: { user: ref('User') } }),
+          200: ok({
+            type: 'object',
+            properties: {
+              user: ref('User'),
+              authKind: {
+                type: 'string',
+                enum: ['session', 'token'],
+                description: 'How this request authenticated.',
+              },
+            },
+          }),
           401: ref('ErrorResponse'),
         },
       },
