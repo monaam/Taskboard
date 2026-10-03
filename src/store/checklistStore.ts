@@ -12,6 +12,11 @@ const generateId = () => crypto.randomUUID();
 const transformChecklist = (data: any): Checklist => ({
   id: data.id,
   title: data.title,
+  // Defaulted so a response from an older server still yields a usable object
+  // rather than an undefined that renders as a missing badge.
+  isOwner: data.isOwner ?? true,
+  owner: data.owner ?? { id: '', username: '' },
+  members: data.members ?? [],
   x: data.x,
   y: data.y,
   color: data.color || 'default',
@@ -110,6 +115,40 @@ export const useChecklistStore = create<ChecklistState & {
       await apiClient.deleteChecklist(checklistId);
     } catch (error) {
       console.error('Failed to delete checklist:', error);
+    }
+  },
+
+  shareChecklist: async (checklistId: string, username: string) => {
+    try {
+      await apiClient.addShare(checklistId, username);
+      // Reload rather than patch: the server owns the member list, and a
+      // guessed local shape would drift from it.
+      await get().loadChecklists();
+      return null;
+    } catch (error) {
+      // The message is the point here — "no account called X" is the whole
+      // feedback the share form has to offer.
+      return error instanceof Error ? error.message : 'Could not share this list';
+    }
+  },
+
+  removeMember: async (checklistId: string, userId: string) => {
+    try {
+      await apiClient.removeShare(checklistId, userId);
+      await get().loadChecklists();
+    } catch (error) {
+      console.error('Failed to remove member:', error);
+    }
+  },
+
+  leaveChecklist: async (checklistId: string) => {
+    // Optimistic: the card should go the moment it is clicked, like a delete.
+    set((state) => ({ checklists: state.checklists.filter((c) => c.id !== checklistId) }));
+    try {
+      await apiClient.leaveShare(checklistId);
+    } catch (error) {
+      console.error('Failed to leave checklist:', error);
+      await get().loadChecklists();
     }
   },
 

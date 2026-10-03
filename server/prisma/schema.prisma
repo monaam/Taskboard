@@ -17,6 +17,8 @@ model User {
   checklists Checklist[]
   textNotes  TextNote[]
   apiTokens  ApiToken[]
+  sharedWithMe ChecklistShare[]
+  placements   ChecklistPlacement[]
 }
 
 model Checklist {
@@ -32,7 +34,9 @@ model Checklist {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  items ChecklistItem[]
+  items      ChecklistItem[]
+  shares     ChecklistShare[]
+  placements ChecklistPlacement[]
 
   @@index([userId])
 }
@@ -110,5 +114,55 @@ model ApiToken {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+}
+
+/// Grants another account edit access to a checklist.
+///
+/// Membership is a single level on purpose: a member can do everything to the
+/// contents that the owner can. What stays with the owner is the list itself --
+/// deleting it, renaming it, recolouring it, and deciding who is in it.
+model ChecklistShare {
+  id String @id @default(uuid())
+
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  /// The member. Cascades, so deleting an account withdraws its memberships.
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  /// One membership per person per list. Re-sharing is an upsert, not a
+  /// duplicate row that would make "is this person a member" ambiguous.
+  @@unique([checklistId, userId])
+  @@index([userId])
+}
+
+/// Where a member has put a shared list on their own board.
+///
+/// The owner's placement stays on Checklist.x/y/order, which is why this table
+/// holds no rows for owners: moving the columns would have meant migrating
+/// every existing list and changing what the API returns. The rule is one line
+/// -- the owner's placement is on the row, everyone else's is here -- and
+/// resolvePlacement is the only code that needs to know it.
+///
+/// Without this, one member dragging a card would move it on every other
+/// member's canvas.
+model ChecklistPlacement {
+  id String @id @default(uuid())
+
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  x     Float
+  y     Float
+  order Int    @default(0)
+
+  @@unique([checklistId, userId])
   @@index([userId])
 }

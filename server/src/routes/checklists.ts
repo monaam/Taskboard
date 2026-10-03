@@ -1,6 +1,9 @@
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { findMemberChecklist, findOwnedChecklist, memberWhere, writePlacement } from '../lib/access';
+import { byOrder, checklistInclude, toChecklistView } from '../lib/checklistView';
+import shareRoutes from './shares';
 
 const router = Router();
 
@@ -17,22 +20,22 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   const prisma: PrismaClient = req.app.get('prisma');
 
   try {
-    const checklists = await prisma.checklist.findMany({
-      where: { userId: req.userId },
-      include: {
-        items: {
-          orderBy: { order: 'asc' },
-        },
-      },
-      orderBy: { order: 'asc' },
+    const rows = await prisma.checklist.findMany({
+      where: memberWhere(req.userId),
+      include: checklistInclude(req.userId),
     });
 
-    res.json(checklists);
+    // Sorted here, not by the query: `order` is now per-viewer, so the column
+    // the database could sort on is only the owner's version of it.
+    res.json(rows.map((row) => toChecklistView(row, req.userId)).sort(byOrder));
   } catch (error) {
     console.error('Get checklists error:', error);
     res.status(500).json({ error: 'Failed to get checklists' });
   }
 });
+
+// Membership lives under the checklist it belongs to.
+router.use('/:checklistId/shares', shareRoutes);
 
 // Create checklist
 router.post('/', async (req: AuthRequest, res: Response) => {
@@ -51,10 +54,10 @@ router.post('/', async (req: AuthRequest, res: Response) => {
           create: [{ text: '', status: 'todo', order: 0 }],
         },
       },
-      include: { items: true },
+      include: checklistInclude(req.userId),
     });
 
-    res.status(201).json(checklist);
+    res.status(201).json(toChecklistView(checklist, req.userId));
   } catch (error) {
     console.error('Create checklist error:', error);
     res.status(500).json({ error: 'Failed to create checklist' });
@@ -68,27 +71,44 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
   const { title, x, y, color } = req.body;
 
   try {
-    // Verify ownership
-    const existing = await prisma.checklist.findFirst({
-      where: { id, userId: req.userId },
-    });
+    // Membership to reach the route at all; ownership is checked per field
+    // below, because this one endpoint carries both kinds.
+    const existing = await findMemberChecklist(prisma, id, req.userId);
 
     if (!existing) {
       return res.status(404).json({ error: 'Checklist not found' });
     }
 
-    const checklist = await prisma.checklist.update({
+    const isOwner = existing.userId === req.userId;
+
+    // title and color belong to the list itself, so they are the owner's.
+    // 403 rather than 404: the caller can plainly see this list, and pretending
+    // it does not exist would be a worse explanation than refusing.
+    if ((title !== undefined || color !== undefined) && !isOwner) {
+      return res.status(403).json({ error: 'Only the owner can rename or recolour a shared list' });
+    }
+
+    if (title !== undefined || color !== undefined) {
+      await prisma.checklist.update({
+        where: { id },
+        data: {
+          ...(title !== undefined && { title }),
+          ...(color !== undefined && { color }),
+        },
+      });
+    }
+
+    // Position is the caller's own, wherever that lives for them.
+    if (x !== undefined || y !== undefined) {
+      await writePlacement(prisma, id, req.userId!, isOwner, { x, y });
+    }
+
+    const row = await prisma.checklist.findUnique({
       where: { id },
-      data: {
-        ...(title !== undefined && { title }),
-        ...(x !== undefined && { x }),
-        ...(y !== undefined && { y }),
-        ...(color !== undefined && { color }),
-      },
-      include: { items: { orderBy: { order: 'asc' } } },
+      include: checklistInclude(req.userId),
     });
 
-    res.json(checklist);
+    res.json(row ? toChecklistView(row, req.userId) : null);
   } catch (error) {
     console.error('Update checklist error:', error);
     res.status(500).json({ error: 'Failed to update checklist' });
@@ -101,7 +121,8 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
   try {
-    // Verify ownership
+    // Owner only. A member deleting a list for everyone is not a thing they
+    // should be able to do by accident; they leave it instead.
     const existing = await prisma.checklist.findFirst({
       where: { id, userId: req.userId },
     });
@@ -126,8 +147,10 @@ router.post('/:id/items', async (req: AuthRequest, res: Response) => {
 
   try {
     // Verify ownership
+    // Any member, not just the owner: membership grants full access to the
+    // contents. See lib/access.
     const checklist = await prisma.checklist.findFirst({
-      where: { id, userId: req.userId },
+      where: { id, ...memberWhere(req.userId) },
       include: { items: { orderBy: { order: 'asc' } } },
     });
 
@@ -206,9 +229,7 @@ router.patch('/:checklistId/items/:itemId', async (req: AuthRequest, res: Respon
 
   try {
     // Verify ownership
-    const checklist = await prisma.checklist.findFirst({
-      where: { id: checklistId, userId: req.userId },
-    });
+    const checklist = await findMemberChecklist(prisma, checklistId, req.userId);
 
     if (!checklist) {
       return res.status(404).json({ error: 'Checklist not found' });
@@ -271,9 +292,7 @@ router.delete('/:checklistId/items/:itemId', async (req: AuthRequest, res: Respo
 
   try {
     // Verify ownership
-    const checklist = await prisma.checklist.findFirst({
-      where: { id: checklistId, userId: req.userId },
-    });
+    const checklist = await findMemberChecklist(prisma, checklistId, req.userId);
 
     if (!checklist) {
       return res.status(404).json({ error: 'Checklist not found' });
@@ -306,9 +325,7 @@ router.post('/:id/reorder', async (req: AuthRequest, res: Response) => {
 
   try {
     // Verify ownership
-    const checklist = await prisma.checklist.findFirst({
-      where: { id, userId: req.userId },
-    });
+    const checklist = await findMemberChecklist(prisma, id, req.userId);
 
     if (!checklist) {
       return res.status(404).json({ error: 'Checklist not found' });
@@ -354,11 +371,11 @@ router.post('/move-item', async (req: AuthRequest, res: Response) => {
 
   try {
     // Verify ownership of both checklists
-    const sourceChecklist = await prisma.checklist.findFirst({
-      where: { id: sourceChecklistId, userId: req.userId },
-    });
+    // Membership on both, ownership on neither: moving an item between a list
+    // you own and one shared with you is ordinary use.
+    const sourceChecklist = await findMemberChecklist(prisma, sourceChecklistId, req.userId);
     const targetChecklist = await prisma.checklist.findFirst({
-      where: { id: targetChecklistId, userId: req.userId },
+      where: { id: targetChecklistId, ...memberWhere(req.userId) },
       include: { items: { orderBy: { order: 'asc' } } },
     });
 
@@ -412,24 +429,30 @@ router.post('/reorder-checklists', async (req: AuthRequest, res: Response) => {
   const { checklistIds } = req.body; // Array of checklist IDs in new order
 
   try {
-    // Verify ownership of all checklists
+    if (!Array.isArray(checklistIds)) {
+      return res.status(400).json({ error: 'checklistIds must be an array' });
+    }
+
+    // Every list must be reachable -- owned or shared.
     const checklists = await prisma.checklist.findMany({
-      where: {
-        id: { in: checklistIds },
-        userId: req.userId
-      },
+      where: { id: { in: checklistIds }, ...memberWhere(req.userId) },
+      select: { id: true, userId: true },
     });
 
     if (checklists.length !== checklistIds.length) {
       return res.status(404).json({ error: 'One or more checklists not found' });
     }
 
-    // Update order for each checklist
+    const ownedIds = new Set(
+      checklists.filter((c) => c.userId === req.userId).map((c) => c.id)
+    );
+
+    // Ordering is per-viewer, so this writes the caller's order and leaves
+    // every other member's alone.
     await Promise.all(
       checklistIds.map((checklistId: string, index: number) =>
-        prisma.checklist.update({
-          where: { id: checklistId },
-          data: { order: index },
+        writePlacement(prisma, checklistId, req.userId!, ownedIds.has(checklistId), {
+          order: index,
         })
       )
     );
@@ -461,24 +484,30 @@ router.post('/positions', async (req: AuthRequest, res: Response) => {
 
   try {
     const ids = positions.map((p: { id: string }) => p.id);
-    const owned = await prisma.checklist.findMany({
-      where: { id: { in: ids }, userId: req.userId },
+    const reachable = await prisma.checklist.findMany({
+      where: { id: { in: ids }, ...memberWhere(req.userId) },
+      select: { id: true, userId: true },
     });
 
-    if (owned.length !== ids.length) {
+    if (reachable.length !== ids.length) {
       return res.status(404).json({ error: 'One or more checklists not found' });
     }
 
-    // Transactional so the board can never persist half arranged — a partial
-    // write would leave a tidy screen and a scrambled database.
-    await prisma.$transaction(
-      positions.map((p: { id: string; x: number; y: number }) =>
-        prisma.checklist.update({
-          where: { id: p.id },
-          data: { x: p.x, y: p.y },
-        })
-      )
+    const ownedIds = new Set(
+      reachable.filter((c) => c.userId === req.userId).map((c) => c.id)
     );
+
+    // Still transactional: a partial write would leave a tidy screen and a
+    // scrambled database. writePlacement sends each position to the caller's
+    // own storage, so auto-arrange rearranges nobody else's board.
+    await prisma.$transaction(async (tx) => {
+      for (const p of positions as { id: string; x: number; y: number }[]) {
+        await writePlacement(tx as unknown as PrismaClient, p.id, req.userId!, ownedIds.has(p.id), {
+          x: p.x,
+          y: p.y,
+        });
+      }
+    });
 
     res.json({ success: true });
   } catch (error) {
@@ -493,9 +522,7 @@ router.post('/:id/select-all', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
   try {
-    const checklist = await prisma.checklist.findFirst({
-      where: { id, userId: req.userId },
-    });
+    const checklist = await findMemberChecklist(prisma, id, req.userId);
 
     if (!checklist) {
       return res.status(404).json({ error: 'Checklist not found' });
@@ -517,9 +544,7 @@ router.post('/:id/deselect-all', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
   try {
-    const checklist = await prisma.checklist.findFirst({
-      where: { id, userId: req.userId },
-    });
+    const checklist = await findMemberChecklist(prisma, id, req.userId);
 
     if (!checklist) {
       return res.status(404).json({ error: 'Checklist not found' });
@@ -541,9 +566,7 @@ router.delete('/:id/completed', async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
 
   try {
-    const checklist = await prisma.checklist.findFirst({
-      where: { id, userId: req.userId },
-    });
+    const checklist = await findMemberChecklist(prisma, id, req.userId);
 
     if (!checklist) {
       return res.status(404).json({ error: 'Checklist not found' });

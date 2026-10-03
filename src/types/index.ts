@@ -1,3 +1,11 @@
+/** A person a checklist is shared with, or its owner. */
+export type Member = {
+  id: string;
+  username: string;
+  /** Absent on the owner, who was never "shared with". */
+  sharedAt?: string;
+};
+
 export type TokenScope = 'read' | 'write';
 
 /** An API token as the server returns it — never including the token value,
@@ -103,6 +111,13 @@ export type Checklist = {
   id: string;
   title: string;
   items: ChecklistItem[];
+  /** False when this list belongs to someone else. Members may edit the items
+   *  but not rename, recolour or delete the list. */
+  isOwner: boolean;
+  owner: Member;
+  /** Everyone it is shared with, excluding the owner. */
+  members: Member[];
+  /** YOUR placement. Each member positions a shared list on their own board. */
   x: number;
   y: number;
   color: ChecklistColor;
@@ -136,6 +151,12 @@ export type ChecklistState = {
   selectAll: (checklistId: string) => void;
   deselectAll: (checklistId: string) => void;
   updateItemFields: (checklistId: string, itemId: string, fields: ItemFields) => void;
+  /** Owner only; resolves to an error message, or null on success. */
+  shareChecklist: (checklistId: string, username: string) => Promise<string | null>;
+  /** Owner only. */
+  removeMember: (checklistId: string, userId: string) => Promise<void>;
+  /** Member only — the counterpart to the owner's delete. */
+  leaveChecklist: (checklistId: string) => Promise<void>;
 };
 
 export type DisplaySettings = {

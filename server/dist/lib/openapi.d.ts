@@ -186,6 +186,7 @@ export declare const buildOpenApiDocument: (baseUrl: string) => {
             patch: {
                 tags: string[];
                 summary: string;
+                description: string;
                 parameters: {
                     name: string;
                     in: string;
@@ -212,6 +213,9 @@ export declare const buildOpenApiDocument: (baseUrl: string) => {
                             };
                         };
                     };
+                    403: {
+                        $ref: string;
+                    };
                     404: {
                         $ref: string;
                     };
@@ -220,6 +224,7 @@ export declare const buildOpenApiDocument: (baseUrl: string) => {
             delete: {
                 tags: string[];
                 summary: string;
+                description: string;
                 parameters: {
                     name: string;
                     in: string;
@@ -527,6 +532,121 @@ export declare const buildOpenApiDocument: (baseUrl: string) => {
                                 schema: object;
                             };
                         };
+                    };
+                    404: {
+                        $ref: string;
+                    };
+                };
+            };
+        };
+        '/api/checklists/{checklistId}/shares': {
+            get: {
+                tags: string[];
+                summary: string;
+                description: string;
+                parameters: {
+                    name: string;
+                    in: string;
+                    required: boolean;
+                    description: string;
+                    schema: {
+                        type: string;
+                    };
+                }[];
+                responses: {
+                    200: {
+                        description: string;
+                        content: {
+                            'application/json': {
+                                schema: object;
+                            };
+                        };
+                    };
+                    404: {
+                        $ref: string;
+                    };
+                };
+            };
+            post: {
+                tags: string[];
+                summary: string;
+                description: string;
+                parameters: {
+                    name: string;
+                    in: string;
+                    required: boolean;
+                    description: string;
+                    schema: {
+                        type: string;
+                    };
+                }[];
+                requestBody: {
+                    required: boolean;
+                    content: {
+                        'application/json': {
+                            schema: object;
+                        };
+                    };
+                };
+                responses: {
+                    201: {
+                        description: string;
+                        content: {
+                            'application/json': {
+                                schema: object;
+                            };
+                        };
+                    };
+                    400: {
+                        $ref: string;
+                    };
+                    404: {
+                        $ref: string;
+                    };
+                };
+            };
+        };
+        '/api/checklists/{checklistId}/shares/me': {
+            delete: {
+                tags: string[];
+                summary: string;
+                description: string;
+                parameters: {
+                    name: string;
+                    in: string;
+                    required: boolean;
+                    description: string;
+                    schema: {
+                        type: string;
+                    };
+                }[];
+                responses: {
+                    204: {
+                        description: string;
+                    };
+                    404: {
+                        $ref: string;
+                    };
+                };
+            };
+        };
+        '/api/checklists/{checklistId}/shares/{userId}': {
+            delete: {
+                tags: string[];
+                summary: string;
+                description: string;
+                parameters: {
+                    name: string;
+                    in: string;
+                    required: boolean;
+                    description: string;
+                    schema: {
+                        type: string;
+                    };
+                }[];
+                responses: {
+                    204: {
+                        description: string;
                     };
                     404: {
                         $ref: string;
@@ -878,11 +998,40 @@ export declare const buildOpenApiDocument: (baseUrl: string) => {
                     };
                 };
             };
+            Member: {
+                type: string;
+                properties: {
+                    id: {
+                        type: string;
+                    };
+                    username: {
+                        type: string;
+                    };
+                    sharedAt: {
+                        type: string;
+                        format: string;
+                    };
+                };
+            };
             Checklist: {
                 type: string;
                 properties: {
                     id: {
                         type: string;
+                    };
+                    isOwner: {
+                        type: string;
+                        description: string;
+                    };
+                    owner: {
+                        $ref: string;
+                    };
+                    members: {
+                        description: string;
+                        type: string;
+                        items: {
+                            $ref: string;
+                        };
                     };
                     userId: {
                         type: string;
@@ -893,15 +1042,18 @@ export declare const buildOpenApiDocument: (baseUrl: string) => {
                     };
                     x: {
                         type: string;
+                        description: string;
                     };
                     y: {
                         type: string;
+                        description: string;
                     };
                     color: {
                         $ref: string;
                     };
                     order: {
                         type: string;
+                        description: string;
                     };
                     items: {
                         type: string;

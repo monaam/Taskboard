@@ -14,7 +14,8 @@
     "db:pull": "node scripts/pull-from-supabase.mjs",
     "check:openapi": "tsx scripts/check-openapi.ts",
     "check:tokens": "tsx scripts/check-tokens.ts",
-    "check:ownership": "tsx scripts/check-ownership.ts"
+    "check:ownership": "tsx scripts/check-ownership.ts",
+    "check:sharing": "tsx scripts/check-sharing.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

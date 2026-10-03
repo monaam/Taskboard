@@ -11,6 +11,7 @@ import authRoutes from '../src/routes/auth';
 import checklistRoutes from '../src/routes/checklists';
 import textNoteRoutes from '../src/routes/textNotes';
 import tokenRoutes from '../src/routes/tokens';
+import shareRoutes from '../src/routes/shares';
 import { buildOpenApiDocument } from '../src/lib/openapi';
 
 type Layer = {
@@ -23,6 +24,12 @@ const toOpenApiPath = (mount: string, path: string): string => {
   return joined.replace(/:([A-Za-z0-9_]+)/g, '{$1}');
 };
 
+/**
+ * Walks one router's own layers. Sub-routers mounted with router.use() are NOT
+ * reached: their layers hang off layer.handle, and the mount path survives only
+ * as a regexp. Listing each mount explicitly below is duller than parsing that
+ * and cannot silently get it wrong.
+ */
 const collect = (mount: string, router: Router): string[] => {
   const out: string[] = [];
   for (const layer of (router as unknown as { stack: Layer[] }).stack) {
@@ -41,6 +48,8 @@ const actual = new Set([
   ...collect('/api/checklists', checklistRoutes),
   ...collect('/api/textnotes', textNoteRoutes),
   ...collect('/api/tokens', tokenRoutes),
+  // Mounted inside checklistRoutes at /:checklistId/shares.
+  ...collect('/api/checklists/{checklistId}/shares', shareRoutes),
   // Declared on the app itself rather than a router.
   'GET /api/health',
   'GET /api/docs',

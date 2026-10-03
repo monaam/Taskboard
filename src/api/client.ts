@@ -106,6 +106,23 @@ class ApiClient {
     return this.request<void>(`/checklists/${id}`, { method: 'DELETE' });
   }
 
+  // --- Members of a checklist. Adding and removing is owner-only server side;
+  // leaving is for members.
+  async addShare(checklistId: string, username: string) {
+    return this.request<import('../types').Member>(`/checklists/${checklistId}/shares`, {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    });
+  }
+
+  async removeShare(checklistId: string, userId: string) {
+    return this.request<void>(`/checklists/${checklistId}/shares/${userId}`, { method: 'DELETE' });
+  }
+
+  async leaveShare(checklistId: string) {
+    return this.request<void>(`/checklists/${checklistId}/shares/me`, { method: 'DELETE' });
+  }
+
   // --- API tokens. Session-authenticated only; the server rejects these if
   // called with a token, so a leaked token cannot mint another.
   async listTokens() {

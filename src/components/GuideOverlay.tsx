@@ -20,6 +20,7 @@ const SECTIONS = [
   { id: 'views', title: 'The three views' },
   { id: 'tasks', title: 'Lists and tasks' },
   { id: 'status', title: 'Marking progress' },
+  { id: 'sharing', title: 'Sharing a list' },
   { id: 'fields', title: 'Dates and priority' },
   { id: 'board', title: 'The board canvas' },
 ];
@@ -463,6 +464,50 @@ export const GuideOverlay = () => {
                 list done, in-progress tasks included.{' '}
                 <strong className="font-semibold text-gray-800">Deselect All</strong> only reopens
                 what was finished, so it never throws away work you had started.
+              </p>
+            </Section>
+
+            <Section id="sharing" title="Sharing a list">
+              <p>
+                Open a list's <strong className="font-semibold text-gray-800">⋮</strong> menu and
+                pick <strong className="font-semibold text-gray-800">Share</strong>, then type
+                someone's username. They need an account already — there are no email invitations.
+              </p>
+              <Ref
+                rows={[
+                  [
+                    <strong key="a" className="font-semibold text-gray-800">They can</strong>,
+                    'Add, edit, tick, reorder and delete items, and move items between the shared list and their own',
+                  ],
+                  [
+                    <strong key="b" className="font-semibold text-gray-800">They cannot</strong>,
+                    'Rename it, recolour it, delete it, or add and remove other people',
+                  ],
+                ]}
+              />
+              <p>
+                A shared list sits on their board among their own, badged{' '}
+                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                  from you
+                </span>
+                , and your own copy shows{' '}
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                  shared · 1
+                </span>
+                . Its items show up in their Priority and Schedule views too, so shared work is
+                planned alongside everything else.
+              </p>
+              <p className="rounded-lg bg-gray-50 px-3 py-2 text-[13px]">
+                <strong className="font-semibold text-gray-800">Each person arranges their own
+                board.</strong>{' '}
+                Where you put a shared card has nothing to do with where they put theirs — dragging
+                yours never moves anyone else's.
+              </p>
+              <p>
+                To stop sharing, remove someone from the same <strong className="font-semibold text-gray-800">Share</strong>{' '}
+                panel. They lose it immediately. Someone who no longer wants a list shared with them
+                uses <strong className="font-semibold text-gray-800">Leave list</strong> in its ⋮
+                menu — only the owner can delete it outright.
               </p>
             </Section>
 

@@ -92,6 +92,7 @@ const document = (baseUrl: string) => ({
     { name: 'Checklists', description: 'Lists and the items in them' },
     { name: 'Items', description: 'Tasks inside a checklist' },
     { name: 'Notes', description: 'Free-floating text notes on the board' },
+    { name: 'Members', description: 'Who else can edit a checklist' },
     { name: 'Tokens', description: 'API tokens. Session login only, not token-accessible' },
     { name: 'Auth', description: 'Sign in and identify yourself' },
     { name: 'Meta', description: 'Health and this document' },
@@ -164,7 +165,8 @@ const document = (baseUrl: string) => ({
       get: {
         tags: ['Checklists'],
         summary: 'Every checklist, with its items',
-        description: 'Items arrive in board order. This is the one call an agent needs to see everything.',
+        description:
+          'Lists you own and lists shared with you, with their items in board order. This is the one call an agent needs to see everything. Check isOwner to tell them apart.',
         responses: { 200: ok(arrayOf('Checklist')) },
       },
       post: {
@@ -187,6 +189,8 @@ const document = (baseUrl: string) => ({
       patch: {
         tags: ['Checklists'],
         summary: 'Rename, recolour or move a checklist',
+        description:
+          'title and color are the owner\'s alone and return 403 for a member. x and y are the CALLER\'s own placement: each member positions a shared list on their own board, and moving it never moves anyone else\'s.',
         parameters: [pathId('id', 'Checklist id')],
         requestBody: jsonBody({
           type: 'object',
@@ -197,11 +201,16 @@ const document = (baseUrl: string) => ({
             color: ref('ChecklistColor'),
           },
         }),
-        responses: { 200: ok(ref('Checklist')), 404: errRef('NotFound') },
+        responses: {
+          200: ok(ref('Checklist')),
+          403: errRef('Forbidden'),
+          404: errRef('NotFound'),
+        },
       },
       delete: {
         tags: ['Checklists'],
         summary: 'Delete a checklist and everything in it',
+        description: 'Owner only. A member leaves it instead -- see /shares/me.',
         parameters: [pathId('id', 'Checklist id')],
         responses: { 204: { description: 'Deleted' }, 404: errRef('NotFound') },
       },
@@ -356,6 +365,66 @@ const document = (baseUrl: string) => ({
         description: 'Only status done. In-progress and todo items are never deleted.',
         parameters: [pathId('id', 'Checklist id')],
         responses: { 200: ok(ref('Success')), 404: errRef('NotFound') },
+      },
+    },
+
+    '/api/checklists/{checklistId}/shares': {
+      get: {
+        tags: ['Members'],
+        summary: 'Who can edit this checklist',
+        description: 'Any member may read this. Only the owner may change it.',
+        parameters: [pathId('checklistId', 'Checklist id')],
+        responses: {
+          200: ok({
+            type: 'object',
+            properties: {
+              isOwner: { type: 'boolean' },
+              members: arrayOf('Member'),
+            },
+          }),
+          404: errRef('NotFound'),
+        },
+      },
+      post: {
+        tags: ['Members'],
+        summary: 'Share this checklist with another account',
+        description:
+          'Owner only. Idempotent: sharing with the same account twice returns 201 and changes nothing. A member can do anything to the contents that the owner can, but cannot rename, recolour, delete, or change the membership.',
+        parameters: [pathId('checklistId', 'Checklist id')],
+        requestBody: jsonBody({
+          type: 'object',
+          required: ['username'],
+          properties: {
+            username: {
+              type: 'string',
+              description: 'An existing account. There is no invitation for someone without one.',
+            },
+          },
+        }),
+        responses: {
+          201: ok(ref('Member'), 'Shared'),
+          400: errRef('BadRequest'),
+          404: errRef('NotFound'),
+        },
+      },
+    },
+    '/api/checklists/{checklistId}/shares/me': {
+      delete: {
+        tags: ['Members'],
+        summary: 'Leave a checklist shared with you',
+        description:
+          'For members. Deleting the list belongs to the owner, so this is how a member gets rid of one. Their placement is forgotten with it.',
+        parameters: [pathId('checklistId', 'Checklist id')],
+        responses: { 204: { description: 'Left' }, 404: errRef('NotFound') },
+      },
+    },
+    '/api/checklists/{checklistId}/shares/{userId}': {
+      delete: {
+        tags: ['Members'],
+        summary: 'Remove a member',
+        description: 'Owner only.',
+        parameters: [pathId('checklistId', 'Checklist id'), pathId('userId', 'The member to remove')],
+        responses: { 204: { description: 'Removed' }, 404: errRef('NotFound') },
       },
     },
 
@@ -527,20 +596,37 @@ const document = (baseUrl: string) => ({
           updatedAt: { type: 'string', format: 'date-time' },
         },
       },
+      Member: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          username: { type: 'string' },
+          sharedAt: { type: 'string', format: 'date-time' },
+        },
+      },
       Checklist: {
         type: 'object',
         properties: {
           id: { type: 'string' },
+          isOwner: {
+            type: 'boolean',
+            description: 'False for a list shared with you. Members cannot rename, recolour or delete it.',
+          },
+          owner: ref('Member'),
+          members: {
+            ...arrayOf('Member'),
+            description: 'Everyone this list is shared with, excluding the owner.',
+          },
           userId: {
             type: 'string',
             description:
               'The owner. Always the authenticated account — every route is scoped to it — so it is of no use for addressing anything, but the server does return it.',
           },
           title: { type: 'string' },
-          x: { type: 'number' },
-          y: { type: 'number' },
+          x: { type: 'number', description: 'YOUR placement, not the owner\'s. Per member.' },
+          y: { type: 'number', description: 'YOUR placement, not the owner\'s. Per member.' },
           color: ref('ChecklistColor'),
-          order: { type: 'integer' },
+          order: { type: 'integer', description: 'Your board order. Per member.' },
           items: arrayOf('ChecklistItem'),
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
