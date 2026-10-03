@@ -203,8 +203,12 @@ router.patch('/:checklistId/items/:itemId', async (req, res) => {
                 return res.status(400).json({ error: `${key} must be a YYYY-MM-DD string or null` });
             }
         }
-        const item = await prisma.checklistItem.update({
-            where: { id: itemId },
+        // Scoped on BOTH ids, never itemId alone. Owning the checklist in the URL
+        // says nothing about who owns the item: passing your own checklist id with
+        // someone else's item id used to pass the ownership check above and then
+        // operate on their row.
+        const { count } = await prisma.checklistItem.updateMany({
+            where: { id: itemId, checklistId },
             data: {
                 ...(text !== undefined && { text }),
                 ...(status !== undefined && { status }),
@@ -215,6 +219,11 @@ router.patch('/:checklistId/items/:itemId', async (req, res) => {
                 ...(notes !== undefined && { notes }),
             },
         });
+        if (count === 0) {
+            return res.status(404).json({ error: 'Item not found' });
+        }
+        // updateMany returns a count, not the row, so the response needs a read.
+        const item = await prisma.checklistItem.findUnique({ where: { id: itemId } });
         res.json(item);
     }
     catch (error) {
@@ -234,7 +243,16 @@ router.delete('/:checklistId/items/:itemId', async (req, res) => {
         if (!checklist) {
             return res.status(404).json({ error: 'Checklist not found' });
         }
-        await prisma.checklistItem.delete({ where: { id: itemId } });
+        // Scoped on BOTH ids, never itemId alone. Owning the checklist in the URL
+        // says nothing about who owns the item: passing your own checklist id with
+        // someone else's item id used to pass the ownership check above and then
+        // operate on their row.
+        const { count } = await prisma.checklistItem.deleteMany({
+            where: { id: itemId, checklistId },
+        });
+        if (count === 0) {
+            return res.status(404).json({ error: 'Item not found' });
+        }
         res.status(204).send();
     }
     catch (error) {
@@ -254,6 +272,19 @@ router.post('/:id/reorder', async (req, res) => {
         });
         if (!checklist) {
             return res.status(404).json({ error: 'Checklist not found' });
+        }
+        if (!Array.isArray(itemIds)) {
+            return res.status(400).json({ error: 'itemIds must be an array' });
+        }
+        // Every id must belong to this checklist. One query rather than a check
+        // per item, and it closes the same hole as the routes above: the
+        // ownership check on the checklist said nothing about these ids.
+        const owned = await prisma.checklistItem.findMany({
+            where: { id: { in: itemIds }, checklistId: id },
+            select: { id: true },
+        });
+        if (owned.length !== itemIds.length) {
+            return res.status(404).json({ error: 'Item not found' });
         }
         // Update order for each item
         await Promise.all(itemIds.map((itemId, index) => prisma.checklistItem.update({
@@ -282,6 +313,19 @@ router.post('/move-item', async (req, res) => {
         });
         if (!sourceChecklist || !targetChecklist) {
             return res.status(404).json({ error: 'Checklist not found' });
+        }
+        // The item must actually be in the source checklist. Checked BEFORE the
+        // shift below, which is already committed by the time the move runs: a
+        // move that fails afterwards would leave a permanent gap in `order`.
+        //
+        // Without this, owning any two checklists was enough to pull someone
+        // else's item into your own list -- and then read it.
+        const item = await prisma.checklistItem.findFirst({
+            where: { id: itemId, checklistId: sourceChecklistId },
+            select: { id: true },
+        });
+        if (!item) {
+            return res.status(404).json({ error: 'Item not found' });
         }
         // Shift items in target checklist
         await prisma.checklistItem.updateMany({
